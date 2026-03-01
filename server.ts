@@ -9,6 +9,8 @@ import multer from 'multer';
 import extract from 'extract-zip';
 import { createServer as createViteServer } from 'vite';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 import { Document, Packer, Paragraph, HeadingLevel, TextRun } from 'docx';
@@ -368,19 +370,24 @@ apiRouter.get('/admin/update/check', authenticate, requireAdmin, async (req, res
   }
 });
 
+const execAsync = promisify(exec);
+
 apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, res) => {
   try {
-    // In a real environment, this might trigger a git pull or download a zip
-    // For this environment, we'll simulate the process and acknowledge it.
-    // The actual code update is handled by the AI agent in this context,
-    // but we provide the UI/API for the user to "trigger" it.
-    console.log('Update applied. Version:', req.body.version);
-    res.json({ success: true, message: 'Update applied successfully. The system will restart shortly.' });
+    console.log('Update triggered via API. Version:', req.body.version);
     
-    // Simulate restart
-    setTimeout(() => {
-      process.exit(0);
-    }, 2000);
+    // Send response immediately because the server will restart
+    res.json({ success: true, message: 'Update process started. The system will restart shortly.' });
+    
+    // Run the update script in the background
+    exec('./update.sh', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Update script error: ${error.message}`);
+        return;
+      }
+      console.log(`Update script output: ${stdout}`);
+      if (stderr) console.error(`Update script stderr: ${stderr}`);
+    });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to apply update', message: error.message });
   }

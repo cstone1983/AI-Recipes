@@ -53,20 +53,57 @@ if [ ! -f .env ]; then
     sed -i 's/ALLOWED_ORIGINS=.*/ALLOWED_ORIGINS=https:\/\/recipe.stoneyshome.com/' .env
 fi
 
+# Function to attempt database repair
+attempt_repair() {
+    echo "Attempting to repair corrupted database..."
+    if command -v sqlite3 &> /dev/null; then
+        # Use .dump and .read to recreate the database from whatever data is readable
+        mv prisma/app.db prisma/app.db.corrupted
+        if sqlite3 prisma/app.db.corrupted .dump | sqlite3 prisma/app.db; then
+            echo "✅ Database repair attempt finished. Retrying setup..."
+            return 0
+        else
+            echo "❌ Database repair failed."
+            mv prisma/app.db.corrupted prisma/app.db
+            return 1
+        fi
+    else
+        echo "❌ sqlite3 not found, cannot attempt repair."
+        return 1
+    fi
+}
+
 # Try to push the database, handle malformed image error
 if ! npx prisma db push; then
     echo ""
     echo "⚠️  Database error detected (possibly a malformed disk image)."
-    echo "This can happen if the database file was corrupted during a previous attempt."
-    read -p "Would you like to reset the database and continue? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "Resetting database..."
-        rm -f prisma/app.db
-        npx prisma db push
+    
+    # Attempt repair first
+    if attempt_repair; then
+        if npx prisma db push; then
+            echo "✅ Database updated successfully after repair."
+        else
+            echo "❌ Database still failing after repair."
+            REPAIR_FAILED=true
+        fi
     else
-        echo "Installation aborted. Please fix the database error manually."
-        exit 1
+        REPAIR_FAILED=true
+    fi
+
+    if [ "$REPAIR_FAILED" = true ]; then
+        echo "This can happen if the database file was severely corrupted."
+        echo "If you continue, the database will be reset and ALL DATA WILL BE LOST."
+        read -p "Would you like to reset the database and continue? (y/n) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Resetting database..."
+            rm -f prisma/app.db
+            rm -f prisma/app.db.corrupted
+            npx prisma db push
+        else
+            echo "Installation aborted. Please fix the database error manually."
+            exit 1
+        fi
     fi
 fi
 npx prisma generate
