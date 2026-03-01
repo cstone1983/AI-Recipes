@@ -49,8 +49,26 @@ echo "[6/7] Setting up database..."
 if [ ! -f .env ]; then
     echo "Creating .env from .env.example..."
     cp .env.example .env
+    # Set default allowed origin
+    sed -i 's/ALLOWED_ORIGINS=.*/ALLOWED_ORIGINS=https:\/\/recipe.stoneyshome.com/' .env
 fi
-npx prisma db push
+
+# Try to push the database, handle malformed image error
+if ! npx prisma db push; then
+    echo ""
+    echo "⚠️  Database error detected (possibly a malformed disk image)."
+    echo "This can happen if the database file was corrupted during a previous attempt."
+    read -p "Would you like to reset the database and continue? (y/n) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Resetting database..."
+        rm -f prisma/app.db
+        npx prisma db push
+    else
+        echo "Installation aborted. Please fix the database error manually."
+        exit 1
+    fi
+fi
 npx prisma generate
 
 # 8. Build Application
