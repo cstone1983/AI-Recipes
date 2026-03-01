@@ -71,15 +71,16 @@ const allowedOrigins = [
   'https://recipe.stoneyshome.com',
   'http://localhost:3000',
   'http://localhost:5173',
+  process.env.APP_URL,
   ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
-];
+].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false); // Don't throw an error, just don't set CORS headers
     }
   },
   credentials: true,
