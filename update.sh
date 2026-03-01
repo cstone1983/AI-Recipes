@@ -5,14 +5,12 @@ echo "========================================"
 echo " CulinaryBase - Update Script"
 echo "========================================"
 
-APP_DIR="/var/www/recipe-app"
+APP_DIR=$(pwd)
 
-if [ ! -d "$APP_DIR" ]; then
-  echo "Error: Directory $APP_DIR does not exist."
+if [ ! -f "package.json" ]; then
+  echo "Error: This script must be run from the root of the CulinaryBase directory."
   exit 1
 fi
-
-cd $APP_DIR
 
 # 1. Stash any local changes (protecting .env and prisma/app.db which are gitignored)
 echo "[1/6] Stashing local changes..."

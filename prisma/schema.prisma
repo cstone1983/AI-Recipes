@@ -4,72 +4,86 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./app.db"
 }
 
 model User {
+  id                  String       @id @default(uuid())
+  email               String       @unique
+  username            String       @unique
+  password            String
+  role                String       @default("User")
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  exportIncludeImages Boolean      @default(true)
+  exportCompactLayout Boolean      @default(false)
+  exportLargeFont     Boolean      @default(false)
+  friendsReceived     Friendship[] @relation("FriendReceiver")
+  friendsInitiated    Friendship[] @relation("FriendInitiator")
+  recipes             Recipe[]
+  sessions            Session[]
+}
+
+model Session {
   id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  role      String   @default("User") // Admin, User, Viewer
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
-  recipes          Recipe[]
-  sharedRecipes    RecipeShare[]
-  defaultPermission String @default("Private") // Public, Private
+model Friendship {
+  id          String   @id @default(uuid())
+  initiatorId String
+  receiverId  String
+  status      String   @default("Pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  receiver    User     @relation("FriendReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  initiator   User     @relation("FriendInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
 
-  // Export Preferences
-  exportIncludeImages Boolean @default(true)
-  exportCompactLayout Boolean @default(false)
-  exportLargeFont     Boolean @default(false)
+  @@unique([initiatorId, receiverId])
 }
 
 model Recipe {
-  id           String   @id @default(uuid())
+  id           String       @id @default(uuid())
   title        String
   description  String?
-  prepTime     Int?     // in minutes
-  cookTime     Int?     // in minutes
+  prepTime     Int?
+  cookTime     Int?
   yield        String?
   instructions String
-  visibility   String   @default("Private") // Public, Private
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
+  imageUrl     String?
+  visibility   String       @default("Private")
+  category     String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
   authorId     String
-  author       User     @relation(fields: [authorId], references: [id])
-
   ingredients  Ingredient[]
-  tags         Tag[]
-  shares       RecipeShare[]
+  author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  tags         Tag[]        @relation("RecipeToTag")
 }
 
 model Ingredient {
-  id          String   @id @default(uuid())
-  name        String
-  amount      Float?
-  unit        String?
-  notes       String?
-  
-  recipeId    String
-  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  id       String  @id @default(uuid())
+  name     String
+  amount   Float?
+  unit     String?
+  notes    String?
+  recipeId String
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 }
 
 model Tag {
-  id       String   @id @default(uuid())
-  name     String   @unique
-  recipes  Recipe[]
+  id      String   @id @default(uuid())
+  name    String   @unique
+  recipes Recipe[] @relation("RecipeToTag")
 }
 
-model RecipeShare {
-  id        String   @id @default(uuid())
-  recipeId  String
-  userId    String
-  permission String  @default("Viewer") // Viewer, Editor
-
-  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([recipeId, userId])
+model GlobalConfig {
+  id           String  @id @default("default")
+  geminiApiKey String?
+  geminiModel  String  @default("gemini-3-flash-preview")
+  updateUrl    String? @default("https://raw.githubusercontent.com/cstone1983/AI-Recipes/main/version.json")
 }
