@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("User") // Admin, User, Viewer
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipes          Recipe[]
+  sharedRecipes    RecipeShare[]
+  defaultPermission String @default("Private") // Public, Private
+
+  // Export Preferences
+  exportIncludeImages Boolean @default(true)
+  exportCompactLayout Boolean @default(false)
+  exportLargeFont     Boolean @default(false)
+}
+
+model Recipe {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  prepTime     Int?     // in minutes
+  cookTime     Int?     // in minutes
+  yield        String?
+  instructions String
+  visibility   String   @default("Private") // Public, Private
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  authorId     String
+  author       User     @relation(fields: [authorId], references: [id])
+
+  ingredients  Ingredient[]
+  tags         Tag[]
+  shares       RecipeShare[]
+}
+
+model Ingredient {
+  id          String   @id @default(uuid())
+  name        String
+  amount      Float?
+  unit        String?
+  notes       String?
+  
+  recipeId    String
+  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id       String   @id @default(uuid())
+  name     String   @unique
+  recipes  Recipe[]
+}
+
+model RecipeShare {
+  id        String   @id @default(uuid())
+  recipeId  String
+  userId    String
+  permission String  @default("Viewer") // Viewer, Editor
+
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, userId])
+}
