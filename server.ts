@@ -177,8 +177,9 @@ apiRouter.post('/auth/register', async (req, res) => {
     res.cookie('session_token', token, { 
       httpOnly: true, 
       expires: expiresAt,
-      sameSite: 'none',
-      secure: true
+      // Use Lax for local network compatibility without HTTPS
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
     });
     const config = await prisma.globalConfig.findUnique({ where: { id: 'default' } });
     const isAiConfigured = !!(config?.geminiApiKey || (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY"));
@@ -226,8 +227,9 @@ apiRouter.post('/auth/login', async (req, res) => {
     res.cookie('session_token', token, { 
       httpOnly: true, 
       expires: expiresAt,
-      sameSite: 'none',
-      secure: true
+      // Use Lax for local network compatibility without HTTPS
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
     });
     console.log('Login successful for:', loginId);
     const config = await prisma.globalConfig.findUnique({ where: { id: 'default' } });
