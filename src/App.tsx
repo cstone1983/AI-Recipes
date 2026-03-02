@@ -22,8 +22,10 @@ export default function App() {
   const [importInput, setImportInput] = useState('');
   const [useWebSearch, setUseWebSearch] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [extractionStatus, setExtractionStatus] = useState<string>('');
   const [activeRecipe, setActiveRecipe] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Cookbook State
   const [recipes, setRecipes] = useState<any[]>([]);
@@ -33,6 +35,9 @@ export default function App() {
   const [recipeViewMode, setRecipeViewMode] = useState<'list' | 'grid'>('grid');
   const [recipeSort, setRecipeSort] = useState<'newest' | 'oldest' | 'alpha'>('newest');
   const [recipeFilter, setRecipeFilter] = useState<string>('all');
+  const [recipeOwnershipFilter, setRecipeOwnershipFilter] = useState<'mine' | 'all'>('mine');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Settings State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -144,7 +149,7 @@ export default function App() {
       fetchUsers();
       fetchConfig();
     }
-  }, [view, user]);
+  }, [view, user, recipeOwnershipFilter]);
 
   useEffect(() => {
     if (isApplyingUpdate) {
@@ -157,7 +162,7 @@ export default function App() {
 
   const fetchRecipes = async () => {
     try {
-      const res = await fetch('/api/recipes', { headers: getHeaders() });
+      const res = await fetch(`/api/recipes?filter=${recipeOwnershipFilter}`, { headers: getHeaders() });
       const data = await res.json();
       if (Array.isArray(data)) setRecipes(data);
     } catch (e) {
@@ -412,17 +417,41 @@ export default function App() {
     }
   };
 
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({ role: newRole })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchUsers();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (e) {
+      alert('Network error.');
+    }
+  };
+
   const handleImport = async () => {
     if (!importInput && importType !== 'image') return;
     setIsImporting(true);
+    setExtractionStatus('Connecting to Gemini AI...');
     console.log('Starting import...', { type: importType, useWebSearch });
     try {
+      setTimeout(() => setExtractionStatus('Analyzing content...'), 2000);
+      setTimeout(() => setExtractionStatus('Extracting ingredients and instructions...'), 5000);
+      setTimeout(() => setExtractionStatus('Finalizing recipe structure...'), 8000);
+
       const res = await fetch('/api/recipes/parse', {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ input: importInput, type: importType, useWebSearch })
       });
       
+      setExtractionStatus('Processing response...');
       console.log('Response status:', res.status);
       const contentType = res.headers.get('content-type');
       
@@ -432,6 +461,7 @@ export default function App() {
         if (data.success) {
           setActiveRecipe(data.data);
           setImportInput('');
+          setIsEditing(false);
         } else {
           const errorMsg = data.message ? `${data.error}: ${data.message}` : data.error;
           alert('Failed to import recipe: ' + (errorMsg || 'Unknown error'));
@@ -446,6 +476,7 @@ export default function App() {
       alert('Network error during import: ' + err.message);
     } finally {
       setIsImporting(false);
+      setExtractionStatus('');
     }
   };
 
@@ -453,15 +484,20 @@ export default function App() {
     if (!activeRecipe) return;
     setIsSaving(true);
     try {
-      const res = await fetch('/api/recipes', {
-        method: 'POST',
+      const method = activeRecipe.id ? 'PUT' : 'POST';
+      const url = activeRecipe.id ? `/api/recipes/${activeRecipe.id}` : '/api/recipes';
+      
+      const res = await fetch(url, {
+        method,
         headers: getHeaders(),
         body: JSON.stringify(activeRecipe)
       });
       const data = await res.json();
       if (data.success) {
         setActiveRecipe(null);
-        alert('Recipe saved successfully!');
+        setIsEditing(false);
+        fetchRecipes();
+        alert(activeRecipe.id ? 'Recipe updated successfully!' : 'Recipe saved successfully!');
       } else {
         alert('Failed to save recipe: ' + data.error);
       }
@@ -469,6 +505,24 @@ export default function App() {
       alert('Network error while saving.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteRecipe = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this recipe?')) return;
+    try {
+      const res = await fetch(`/api/recipes/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchRecipes();
+      } else {
+        alert('Failed to delete recipe: ' + data.error);
+      }
+    } catch (e) {
+      alert('Network error.');
     }
   };
 
@@ -604,61 +658,132 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500/30 flex">
+    <div className="flex h-screen bg-zinc-950 text-zinc-100 overflow-hidden relative">
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-zinc-900 bg-zinc-950 flex flex-col h-screen sticky top-0">
-        <div className="p-6 flex items-center gap-3 border-b border-zinc-900">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-            <ChefHat size={20} />
+      <aside 
+        className={`
+          fixed inset-y-0 left-0 z-50 lg:relative lg:z-0
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}
+          bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-300 ease-in-out
+        `}
+      >
+        <div className={`p-6 border-b border-zinc-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+          <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'hidden' : 'flex'}`}>
+            <ChefHat className="text-emerald-500" size={28} />
+            <span className="font-serif text-xl font-bold tracking-tight">CulinaryBase</span>
           </div>
-          <span className="font-serif text-lg font-medium tracking-wide">CulinaryBase</span>
+          {isSidebarCollapsed && <ChefHat className="text-emerald-500" size={28} />}
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="hidden lg:block p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            <Layout size={18} />
+          </button>
+          <button 
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="lg:hidden p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            <X size={20} />
+          </button>
         </div>
-        
-        <nav className="flex-1 p-4 space-y-1">
-          <button 
-            onClick={() => setView('importer')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${view === 'importer' ? 'bg-zinc-900 text-emerald-400' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
-          >
-            <Plus size={18} /> Import Recipe
-          </button>
-          <button 
-            onClick={() => setView('cookbook')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${view === 'cookbook' ? 'bg-zinc-900 text-emerald-400' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
-          >
-            <BookOpen size={18} /> My Cookbook
-          </button>
-          {user.role === 'Admin' && (
-            <button 
-              onClick={() => setView('admin')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${view === 'admin' ? 'bg-zinc-900 text-emerald-400' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
-            >
-              <ShieldAlert size={18} /> Admin Panel
-            </button>
-          )}
-          <button 
-            onClick={() => setView('settings')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${view === 'settings' ? 'bg-zinc-900 text-emerald-400' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'}`}
-          >
-            <Settings size={18} /> Settings
-          </button>
+
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {[
+            { id: 'importer', icon: Plus, label: 'Import' },
+            { id: 'cookbook', icon: BookOpen, label: 'Cookbook' },
+            { id: 'settings', icon: Settings, label: 'Settings' },
+            { id: 'admin', icon: ShieldAlert, label: 'Admin', adminOnly: true },
+          ].map(item => {
+            if (item.adminOnly && user?.role !== 'Admin') return null;
+            const Icon = item.icon;
+            const isActive = view === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setView(item.id as ViewState);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group
+                  ${isActive 
+                    ? 'bg-emerald-600/10 text-emerald-500 font-medium' 
+                    : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'}
+                  ${isSidebarCollapsed ? 'justify-center' : ''}
+                `}
+                title={isSidebarCollapsed ? item.label : ''}
+              >
+                <Icon size={20} className={isActive ? 'text-emerald-500' : 'group-hover:scale-110 transition-transform'} />
+                {!isSidebarCollapsed && <span>{item.label}</span>}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="p-4 border-t border-zinc-900">
-          <div className="flex items-center justify-between px-3 py-2 text-sm text-zinc-400">
-            <div className="flex items-center gap-2">
-              <UserIcon size={16} />
-              <span className="truncate max-w-[120px]">{user.username}</span>
+        <div className="p-4 border-t border-zinc-800 space-y-2">
+          <div className={`flex items-center gap-3 px-3 py-2 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm font-bold shrink-0">
+              {user?.username?.[0]?.toUpperCase()}
             </div>
-            <button onClick={handleLogout} className="hover:text-red-400 transition-colors" title="Logout">
-              <LogOut size={16} />
-            </button>
+            {!isSidebarCollapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user?.username}</p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{user?.role}</p>
+              </div>
+            )}
           </div>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('session_token');
+              setToken(null);
+              setUser(null);
+              setView('login');
+            }}
+            className={`
+              w-full flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-all
+              ${isSidebarCollapsed ? 'justify-center' : ''}
+            `}
+            title={isSidebarCollapsed ? 'Logout' : ''}
+          >
+            <LogOut size={18} />
+            {!isSidebarCollapsed && <span className="text-sm">Logout</span>}
+          </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-5xl mx-auto p-8">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Mobile Header */}
+        <header className="lg:hidden h-16 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 shrink-0">
+          <div className="flex items-center gap-2">
+            <ChefHat className="text-emerald-500" size={24} />
+            <span className="font-serif text-lg font-bold tracking-tight">CulinaryBase</span>
+          </div>
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+          >
+            <Layout size={24} />
+          </button>
+        </header>
+
+        <main className="flex-1 overflow-auto">
+          <div className="max-w-5xl mx-auto p-4 md:p-8">
           <AnimatePresence mode="wait">
             
             {/* IMPORTER VIEW */}
@@ -686,7 +811,28 @@ export default function App() {
 
                 {!activeRecipe ? (
                   <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                    <div className="flex gap-2 mb-6">
+                    {isImporting ? (
+                      <div className="py-12 text-center space-y-6">
+                        <div className="relative inline-block">
+                          <Loader2 className="animate-spin text-emerald-500 mx-auto" size={48} />
+                          <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full animate-pulse" />
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-xl font-serif">Extracting Recipe...</h3>
+                          <p className="text-zinc-400 text-sm animate-pulse">{extractionStatus || 'Analyzing content and formatting ingredients...'}</p>
+                        </div>
+                        <div className="max-w-xs mx-auto bg-zinc-800 h-1 rounded-full overflow-hidden">
+                          <motion.div 
+                            className="bg-emerald-500 h-full"
+                            initial={{ width: '0%' }}
+                            animate={{ width: '100%' }}
+                            transition={{ duration: 15, ease: "linear" }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex gap-2 mb-6">
                       {(['url', 'text', 'image'] as ImportType[]).map(type => (
                         <button
                           key={type}
@@ -794,16 +940,18 @@ export default function App() {
                           {isImporting ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
                           {isImporting ? 'Extracting...' : 'Extract Recipe'}
                         </button>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ) : (
+                    </>
+                  )}
+                </div>
+              ) : (
                   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                     <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-950/50">
-                      <h2 className="text-xl font-serif">Review Recipe</h2>
+                      <h2 className="text-xl font-serif">{activeRecipe.id ? 'Edit Recipe' : 'Review Recipe'}</h2>
                       <div className="flex gap-3">
                         <button 
-                          onClick={() => setActiveRecipe(null)}
+                          onClick={() => { setActiveRecipe(null); setIsEditing(false); }}
                           className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
                         >
                           Discard
@@ -814,7 +962,7 @@ export default function App() {
                           className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                         >
                           {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                          Save Recipe
+                          {activeRecipe.id ? 'Update Recipe' : 'Save Recipe'}
                         </button>
                       </div>
                     </div>
@@ -942,10 +1090,30 @@ export default function App() {
               >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-zinc-900 pb-6 gap-4">
                   <div>
-                    <h1 className="text-3xl font-serif tracking-tight mb-2">My Cookbook</h1>
-                    <p className="text-zinc-400 text-sm">Select recipes to export as a formatted document.</p>
+                    <h1 className="text-3xl font-serif tracking-tight mb-2">
+                      {recipeOwnershipFilter === 'mine' ? 'My Cookbook' : 'Global Cookbook'}
+                    </h1>
+                    <p className="text-zinc-400 text-sm">
+                      {recipeOwnershipFilter === 'mine' 
+                        ? 'Manage and export your personal recipe collection.' 
+                        : 'Discover and export recipes from the entire community.'}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                    <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                      <button 
+                        onClick={() => setRecipeOwnershipFilter('mine')} 
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${recipeOwnershipFilter === 'mine' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                      >
+                        My Recipes
+                      </button>
+                      <button 
+                        onClick={() => setRecipeOwnershipFilter('all')} 
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${recipeOwnershipFilter === 'all' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                      >
+                        Global
+                      </button>
+                    </div>
                     <select 
                       value={recipeFilter}
                       onChange={(e) => setRecipeFilter(e.target.value)}
@@ -1000,7 +1168,12 @@ export default function App() {
                     >
                       <div className={`flex-1 ${recipeViewMode === 'grid' ? 'mb-4' : ''}`}>
                         <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-serif text-lg leading-tight mb-1">{recipe.title}</h3>
+                          <div>
+                            <h3 className="font-serif text-lg leading-tight mb-1">{recipe.title}</h3>
+                            {recipeOwnershipFilter === 'all' && (
+                              <p className="text-[10px] text-zinc-500 italic">by {recipe.author?.username || 'Unknown'}</p>
+                            )}
+                          </div>
                           {recipe.category && <span className="text-[10px] uppercase tracking-wider bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full whitespace-nowrap">{recipe.category}</span>}
                         </div>
                         <div className="flex items-center gap-4 text-xs text-zinc-500 mt-2">
@@ -1010,12 +1183,35 @@ export default function App() {
                       </div>
                       
                       <div className={`flex items-center gap-3 ${recipeViewMode === 'grid' ? 'w-full justify-between mt-auto pt-4 border-t border-zinc-800/50' : ''}`}>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setViewingRecipe(recipe); }}
-                          className="text-sm text-zinc-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
-                        >
-                          <FileText size={14} /> View
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setViewingRecipe(recipe); }}
+                            className="text-sm text-zinc-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                          >
+                            <FileText size={14} /> View
+                          </button>
+                          {(recipe.authorId === user?.id || user?.role === 'Admin') && (
+                            <>
+                              <button 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setActiveRecipe(recipe); 
+                                  setIsEditing(true);
+                                  setView('importer');
+                                }}
+                                className="text-sm text-zinc-400 hover:text-blue-400 transition-colors flex items-center gap-1"
+                              >
+                                <Edit2 size={14} /> Edit
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteRecipe(recipe.id); }}
+                                className="text-sm text-zinc-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                              >
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                         <button 
                           onClick={(e) => { e.stopPropagation(); toggleRecipeSelection(recipe.id); }}
                           className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-colors ${selectedRecipes.has(recipe.id) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}
@@ -1214,9 +1410,14 @@ export default function App() {
                               <td className="px-6 py-4">{u.username}</td>
                               <td className="px-6 py-4 text-zinc-400">{u.email}</td>
                               <td className="px-6 py-4">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${u.role === 'Admin' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-300'}`}>
-                                  {u.role}
-                                </span>
+                                <select 
+                                  value={u.role} 
+                                  onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                  className={`bg-zinc-800 text-xs font-medium rounded px-2 py-1 border border-transparent focus:border-emerald-500 focus:outline-none transition-colors ${u.role === 'Admin' ? 'text-emerald-400' : 'text-zinc-300'}`}
+                                >
+                                  <option value="User">User</option>
+                                  <option value="Admin">Admin</option>
+                                </select>
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <button onClick={() => setChangingPasswordUserId(changingPasswordUserId === u.id ? null : u.id)} className="text-zinc-500 hover:text-emerald-400 p-1 text-xs underline">Change Password</button>
@@ -1585,5 +1786,6 @@ export default function App() {
         </div>
       </main>
     </div>
-  );
+  </div>
+);
 }

@@ -333,6 +333,21 @@ apiRouter.put('/admin/users/:id/password', authenticate, requireAdmin, async (re
   }
 });
 
+apiRouter.put('/admin/users/:id/role', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!role) return res.status(400).json({ error: 'Role is required' });
+    
+    await prisma.user.update({
+      where: { id: req.params.id },
+      data: { role }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update user role', message: error.message });
+  }
+});
+
 apiRouter.get('/admin/config', authenticate, requireAdmin, async (req, res) => {
   try {
     let config = await prisma.globalConfig.findUnique({ where: { id: 'default' } });
@@ -614,12 +629,17 @@ apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
     }
 
     const prompt = `
+      You are a world-class chef and recipe extractor. 
+      Extract recipe details from the provided input (which could be a URL, text, or image).
+      If the input is from a social media platform like Facebook, Instagram, or TikTok (e.g., a reel or post), 
+      pay close attention to context clues in the description, comments, or visual text to reconstruct the full recipe.
+      
       Return a strict JSON object matching this schema:
       {
         "title": "Recipe Name",
         "description": "Short description",
-        "prepTime": 15, // in minutes
-        "cookTime": 30, // in minutes
+        "prepTime": 15, // in minutes (estimate if not provided)
+        "cookTime": 30, // in minutes (estimate if not provided)
         "yield": "4 servings",
         "instructions": "Step 1... Step 2...", 
         "imageUrl": "https://example.com/image.jpg",
@@ -741,9 +761,17 @@ apiRouter.post('/recipes/search-similar', authenticate, async (req, res) => {
 
 apiRouter.get('/recipes', authenticate, async (req: any, res) => {
   try {
+    const { filter } = req.query;
+    const whereClause = filter === 'all' ? {} : { authorId: req.user.id };
+    
     const recipes = await prisma.recipe.findMany({
-      where: { authorId: req.user.id },
-      include: { ingredients: true }
+      where: whereClause,
+      include: { 
+        ingredients: true,
+        author: {
+          select: { username: true }
+        }
+      }
     });
     res.json(recipes);
   } catch (error: any) {
@@ -774,6 +802,57 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
     res.json({ success: true, recipe });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to save recipe', traceback: error.stack });
+  }
+});
+
+apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, prepTime, cookTime, yield: recipeYield, instructions, imageUrl, visibility, category, ingredients } = req.body;
+    
+    const existing = await prisma.recipe.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Recipe not found' });
+    if (existing.authorId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this recipe' });
+    }
+
+    const recipe = await prisma.recipe.update({
+      where: { id },
+      data: {
+        title,
+        description,
+        prepTime,
+        cookTime,
+        yield: recipeYield,
+        instructions,
+        imageUrl,
+        visibility,
+        category,
+        ingredients: {
+          deleteMany: {},
+          create: ingredients || []
+        }
+      }
+    });
+    res.json({ success: true, recipe });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update recipe', traceback: error.stack });
+  }
+});
+
+apiRouter.delete('/recipes/:id', authenticate, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.recipe.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Recipe not found' });
+    if (existing.authorId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this recipe' });
+    }
+
+    await prisma.recipe.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete recipe', traceback: error.stack });
   }
 });
 
