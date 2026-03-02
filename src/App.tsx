@@ -622,25 +622,6 @@ export default function App() {
         if (data.success) {
           let recipe = data.data;
           
-          // Auto-suggest image if missing
-          if (!recipe.imageUrl) {
-            setExtractionStatus('Finding an image for you...');
-            try {
-              const imgRes = await fetch('/api/recipes/suggest-image', {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({ title: recipe.title })
-              });
-              const imgData = await imgRes.json();
-              if (imgData.imageUrls && imgData.imageUrls.length > 0) {
-                recipe.imageUrl = imgData.imageUrls[0];
-                setSuggestedImages(imgData.imageUrls);
-              }
-            } catch (e) {
-              console.warn('Auto-image suggestion failed', e);
-            }
-          }
-
           setActiveRecipe(recipe);
           setImportInput('');
           setIsEditing(true); // Switch to edit mode so user can review/save
@@ -1182,18 +1163,36 @@ export default function App() {
                               )}
                             </div>
                             <div className="flex-1">
-                              <button 
-                                onClick={() => {
-                                  setShowImagePicker(true);
-                                  // Only suggest if we have a title and no suggestions yet
-                                  if (activeRecipe.title && suggestedImages.length === 0) {
-                                    handleSuggestImages();
-                                  }
-                                }}
-                                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-2"
-                              >
-                                <ImageIcon size={16} /> Select / Upload Image
-                              </button>
+                              <div className="flex gap-2 mb-2">
+                                <button 
+                                  onClick={() => {
+                                    setShowImagePicker(true);
+                                    if (activeRecipe.title && suggestedImages.length === 0) {
+                                      handleSuggestImages();
+                                    }
+                                  }}
+                                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <ImageIcon size={14} /> Select / Upload
+                                </button>
+                                <button 
+                                  onClick={handleSuggestImages}
+                                  disabled={isImporting || !activeRecipe.title}
+                                  className="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                                  title="Find images using AI"
+                                >
+                                  <Sparkles size={14} /> AI Suggest
+                                </button>
+                                {activeRecipe.imageUrl && (
+                                  <button 
+                                    onClick={() => setActiveRecipe({...activeRecipe, imageUrl: ''})}
+                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                                    title="Remove current image"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
                               <input 
                                 type="text" 
                                 value={activeRecipe.imageUrl || ''}
