@@ -81,9 +81,15 @@ app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
 
 app.use(cors({
-  origin: '*',
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://10.10.1.94:3000',
+    'https://recipe.stoneyshome.com'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-token'],
+  credentials: true
 }));
 
 // --- Authentication Middleware ---
