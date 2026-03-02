@@ -444,6 +444,72 @@ export default function App() {
     }
   };
 
+  const handleSuggestImage = async () => {
+    if (!activeRecipe.title) return alert('Please enter a title first');
+    setExtractionStatus('Finding image...');
+    setIsImporting(true); // Reuse importing state for spinner
+    try {
+      const res = await fetch('/api/recipes/suggest-image', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ title: activeRecipe.title })
+      });
+      const data = await res.json();
+      if (data.imageUrl) {
+        setActiveRecipe({ ...activeRecipe, imageUrl: data.imageUrl });
+      } else {
+        alert('No image found');
+      }
+    } catch (e) {
+      alert('Failed to find image');
+    } finally {
+      setIsImporting(false);
+      setExtractionStatus('');
+    }
+  };
+
+  const handleSuggestCategory = async () => {
+    if (!activeRecipe.title) return alert('Please enter a title first');
+    setExtractionStatus('Suggesting category...');
+    setIsImporting(true);
+    try {
+      const res = await fetch('/api/recipes/suggest-category', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ 
+          title: activeRecipe.title,
+          description: activeRecipe.description,
+          ingredients: activeRecipe.ingredients 
+        })
+      });
+      const data = await res.json();
+      if (data.category) {
+        setActiveRecipe({ ...activeRecipe, category: data.category });
+      }
+    } catch (e) {
+      alert('Failed to suggest category');
+    } finally {
+      setIsImporting(false);
+      setExtractionStatus('');
+    }
+  };
+
+  const handleCancelUpdate = async () => {
+    try {
+      const res = await fetch('/api/admin/update/cancel', {
+        method: 'POST',
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsApplyingUpdate(false);
+        setUpdateLogs(prev => [...prev, 'Update cancelled by user.']);
+      }
+    } catch (e) {
+      alert('Failed to cancel update');
+    }
+  };
+
   const handleImport = async () => {
     if (!importInput && importType !== 'image') return;
     setIsImporting(true);
@@ -468,7 +534,27 @@ export default function App() {
         const data = await res.json();
         console.log('Response data:', data);
         if (data.success) {
-          setActiveRecipe(data.data);
+          let recipe = data.data;
+          
+          // Auto-suggest image if missing
+          if (!recipe.imageUrl) {
+            setExtractionStatus('Finding an image for you...');
+            try {
+              const imgRes = await fetch('/api/recipes/suggest-image', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ title: recipe.title })
+              });
+              const imgData = await imgRes.json();
+              if (imgData.imageUrl) {
+                recipe.imageUrl = imgData.imageUrl;
+              }
+            } catch (e) {
+              console.warn('Auto-image suggestion failed', e);
+            }
+          }
+
+          setActiveRecipe(recipe);
           setImportInput('');
           setIsEditing(false);
         } else {
@@ -992,17 +1078,49 @@ export default function App() {
                             value={activeRecipe.title || ''}
                             onChange={e => setActiveRecipe({...activeRecipe, title: e.target.value})}
                             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-lg font-serif focus:outline-none focus:border-emerald-500"
+                            required
                           />
                         </div>
                         <div className="col-span-2 md:col-span-1">
+                          <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Image URL</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="url" 
+                              value={activeRecipe.imageUrl || ''}
+                              onChange={e => setActiveRecipe({...activeRecipe, imageUrl: e.target.value})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                              placeholder="https://..."
+                              required
+                            />
+                            <button 
+                              onClick={handleSuggestImage}
+                              disabled={isImporting || !activeRecipe.title}
+                              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1"
+                              title="Find Image with AI"
+                            >
+                              <ImageIcon size={14} /> Find
+                            </button>
+                          </div>
+                        </div>
+                        <div className="col-span-2 md:col-span-1">
                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Category</label>
-                          <input 
-                            type="text" 
-                            placeholder="e.g. Dessert, Main Course, Breakfast"
-                            value={activeRecipe.category || ''}
-                            onChange={e => setActiveRecipe({...activeRecipe, category: e.target.value})}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-lg font-serif focus:outline-none focus:border-emerald-500"
-                          />
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              placeholder="e.g. Dessert, Main Course, Breakfast"
+                              value={activeRecipe.category || ''}
+                              onChange={e => setActiveRecipe({...activeRecipe, category: e.target.value})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-lg font-serif focus:outline-none focus:border-emerald-500"
+                            />
+                            <button 
+                              onClick={handleSuggestCategory}
+                              disabled={isImporting || !activeRecipe.title}
+                              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1"
+                              title="Suggest Category with AI"
+                            >
+                              <Sparkles size={14} /> Auto
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -1274,6 +1392,19 @@ export default function App() {
                     </div>
                   </div>
                   <div className="p-6 space-y-8">
+                    {viewingRecipe.imageUrl && (
+                      <div className="w-full h-64 rounded-xl overflow-hidden mb-6">
+                        <img 
+                          src={viewingRecipe.imageUrl} 
+                          alt={viewingRecipe.title} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
                     {viewingRecipe.description && <p className="text-zinc-300 italic">{viewingRecipe.description}</p>}
                     
                     <div className="flex flex-wrap gap-4 text-sm text-zinc-400 bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
@@ -1538,6 +1669,12 @@ export default function App() {
                                 />
                               </div>
                               <p className="text-[10px] text-zinc-500 text-center italic">Please do not close this window. The system will restart automatically.</p>
+                              <button 
+                                onClick={handleCancelUpdate}
+                                className="w-full text-red-400 hover:text-red-300 text-xs mt-2 underline"
+                              >
+                                Cancel Update (Emergency Only)
+                              </button>
                             </div>
                           )}
                           {!isApplyingUpdate && (

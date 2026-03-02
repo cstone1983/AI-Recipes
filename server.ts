@@ -537,6 +537,21 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
       env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' }
     });
 
+    // Store child process reference for cancellation
+    (global as any).updateProcess = child;
+
+    // Timeout after 5 minutes
+    const timeout = setTimeout(() => {
+      if (child.exitCode === null) {
+        child.kill();
+        updateLogs.push('ERROR: Update timed out after 5 minutes.');
+        updateEmitter.emit('log', 'ERROR: Update timed out after 5 minutes.');
+        updateEmitter.emit('done', 1);
+        isUpdating = false;
+        prisma.$connect().catch(console.error);
+      }
+    }, 5 * 60 * 1000);
+
     child.stdout.on('data', (data) => {
       const lines = data.toString().split('\n').filter(Boolean);
       lines.forEach((line: string) => {
@@ -554,6 +569,8 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
     });
 
     child.on('close', (code) => {
+      clearTimeout(timeout);
+      (global as any).updateProcess = null;
       updateLogs.push(`Update script finished with code ${code}`);
       updateEmitter.emit('log', `Update script finished with code ${code}`);
       updateEmitter.emit('done', code ?? 0);
@@ -567,6 +584,97 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
   } catch (error: any) {
     isUpdating = false;
     res.status(500).json({ error: 'Failed to apply update', message: error.message });
+  }
+});
+
+apiRouter.post('/admin/update/cancel', authenticate, requireAdmin, async (req, res) => {
+  if (!isUpdating) {
+    return res.status(400).json({ error: 'No update in progress' });
+  }
+
+  const child = (global as any).updateProcess;
+  if (child) {
+    child.kill();
+    updateLogs.push('Update cancelled by user.');
+    updateEmitter.emit('log', 'Update cancelled by user.');
+    updateEmitter.emit('done', 1); // Treat as failure/cancellation
+    isUpdating = false;
+    (global as any).updateProcess = null;
+    await prisma.$connect().catch(console.error);
+    return res.json({ success: true, message: 'Update cancelled.' });
+  } else {
+    isUpdating = false; // Force reset state if process is lost
+    return res.json({ success: true, message: 'Update state reset.' });
+  }
+});
+
+apiRouter.post('/recipes/suggest-image', authenticate, async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!ai) return res.status(500).json({ error: 'AI not configured' });
+
+    const prompt = `Find a high-quality, public image URL for the recipe: "${title}". 
+    Return a JSON object with a single property "imageUrl". 
+    If you cannot find a specific image, find a generic high-quality image of this dish.`;
+
+    const response = await ai.models.generateContent({
+      model: currentGeminiModel,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        tools: [{ googleSearch: {} }],
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            imageUrl: { type: Type.STRING }
+          }
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    res.json({ imageUrl: result.imageUrl || '' });
+  } catch (error: any) {
+    console.error('Image suggestion error:', error);
+    res.status(500).json({ error: 'Failed to suggest image' });
+  }
+});
+
+apiRouter.post('/recipes/suggest-category', authenticate, async (req, res) => {
+  try {
+    const { title, description, ingredients } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!ai) return res.status(500).json({ error: 'AI not configured' });
+
+    const prompt = `Suggest a single category for this recipe:
+    Title: ${title}
+    Description: ${description || ''}
+    Ingredients: ${JSON.stringify(ingredients || [])}
+    
+    Choose from: Breakfast, Lunch, Dinner, Dessert, Snack, Drink, Appetizer, Salad, Soup, Side Dish, Baked Goods.
+    If none fit perfectly, choose the closest one or a standard culinary category.
+    Return JSON: { "category": "CategoryName" }`;
+
+    const response = await ai.models.generateContent({
+      model: currentGeminiModel,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            category: { type: Type.STRING }
+          }
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    res.json({ category: result.category || 'Dinner' });
+  } catch (error: any) {
+    console.error('Category suggestion error:', error);
+    res.status(500).json({ error: 'Failed to suggest category' });
   }
 });
 
