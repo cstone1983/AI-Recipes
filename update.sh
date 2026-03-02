@@ -39,9 +39,17 @@ fi
 # 4. Apply database migrations
 echo "[4/6] Applying database migrations..."
 
-# Load environment variables from .env if present
+# Ensure user_data directory exists
+mkdir -p user_data
+
+# Force export DATABASE_URL to ensure it is available to Prisma
+export DATABASE_URL="file:../user_data/app.db"
+
+# Load environment variables from .env if present (as backup/override if needed)
 if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
+  set -a
+  source .env
+  set +a
 fi
 
 npx prisma generate
