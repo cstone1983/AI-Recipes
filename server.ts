@@ -31,7 +31,7 @@ let updateLogs: string[] = [];
 const updateEmitter = new EventEmitter();
 
 // Trust proxy for Cloudflare/Tunnels
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 // Initialize Gemini API
 let ai: GoogleGenAI | null = null;
@@ -76,16 +76,11 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
 
-const allowedOrigins = [
-  'https://recipe.stoneyshome.com',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  process.env.APP_URL,
-  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
-].filter(Boolean);
-
 app.use(cors({
-  origin: true, // Allow all origins explicitly
+  origin: function (origin, callback) {
+    // Always allow, effectively reflecting the request origin
+    callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-session-token']
