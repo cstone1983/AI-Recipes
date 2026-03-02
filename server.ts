@@ -394,6 +394,92 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
   }
 });
 
+apiRouter.get('/admin/backup', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `backup-${timestamp}.zip`;
+
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-Type', 'application/zip');
+
+    archive.pipe(res);
+
+    // Add database
+    if (fs.existsSync('prisma/app.db')) {
+      archive.file('prisma/app.db', { name: 'app.db' });
+    }
+
+    // Add uploads
+    if (fs.existsSync(UPLOADS_DIR)) {
+      archive.directory(UPLOADS_DIR, 'uploads');
+    }
+
+    await archive.finalize();
+  } catch (error: any) {
+    console.error('Backup error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to create backup' });
+    }
+  }
+});
+
+apiRouter.post('/admin/restore', authenticate, requireAdmin, upload.single('backup'), async (req: any, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No backup file uploaded' });
+    }
+
+    const zipPath = req.file.path;
+    const extractPath = path.join(__dirname, 'temp_restore');
+
+    if (fs.existsSync(extractPath)) {
+      fs.rmSync(extractPath, { recursive: true, force: true });
+    }
+    fs.mkdirSync(extractPath, { recursive: true });
+
+    await extract(zipPath, { dir: extractPath });
+
+    // 1. Restore database
+    const dbPath = path.join(extractPath, 'app.db');
+    if (fs.existsSync(dbPath)) {
+      // Close prisma connection first
+      await prisma.$disconnect();
+      fs.copyFileSync(dbPath, 'prisma/app.db');
+    }
+
+    // 2. Restore uploads
+    const uploadsPath = path.join(extractPath, 'uploads');
+    if (fs.existsSync(uploadsPath)) {
+      if (fs.existsSync(UPLOADS_DIR)) {
+        fs.rmSync(UPLOADS_DIR, { recursive: true, force: true });
+      }
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      
+      // Copy files from uploadsPath to UPLOADS_DIR
+      const files = fs.readdirSync(uploadsPath);
+      for (const file of files) {
+        fs.copyFileSync(path.join(uploadsPath, file), path.join(UPLOADS_DIR, file));
+      }
+    }
+
+    // Cleanup
+    fs.rmSync(extractPath, { recursive: true, force: true });
+    fs.unlinkSync(zipPath);
+
+    res.json({ success: true, message: 'System restored successfully. Restarting server...' });
+
+    // Restart the server
+    setTimeout(() => {
+      process.exit(0);
+    }, 1000);
+
+  } catch (error: any) {
+    console.error('Restore error:', error);
+    res.status(500).json({ error: 'Failed to restore system', message: error.message });
+  }
+});
+
 // --- Recipe Routes ---
 apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
   try {

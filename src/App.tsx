@@ -73,6 +73,46 @@ export default function App() {
   const [similarRecipes, setSimilarRecipes] = useState<any[]>([]);
   const [showSimilarModal, setShowSimilarModal] = useState(false);
   const [searchPrompt, setSearchPrompt] = useState('');
+  const [isRestoring, setIsRestoring] = useState(false);
+  const restoreFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm('Are you sure you want to restore from this backup? This will overwrite ALL current data and restart the server.')) {
+      if (restoreFileInputRef.current) restoreFileInputRef.current.value = '';
+      return;
+    }
+
+    setIsRestoring(true);
+    const formData = new FormData();
+    formData.append('backup', file);
+
+    try {
+      const res = await fetch('/api/admin/restore', {
+        method: 'POST',
+        headers: { 'x-session-token': token || '' },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('System restored successfully. The application will restart in a few seconds.');
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
+      } else {
+        alert('Restore failed: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Restore error:', err);
+      alert('Restore failed. Check console for details.');
+    } finally {
+      setIsRestoring(false);
+      if (restoreFileInputRef.current) restoreFileInputRef.current.value = '';
+    }
+  };
 
   // Auth Headers Helper
   const getHeaders = () => {
@@ -1237,7 +1277,19 @@ export default function App() {
                   <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2"><Upload size={18} /> System Restore</h3>
                     <p className="text-sm text-zinc-400 mb-6">Upload a backup.zip to overwrite the current database and images. Will restart the server.</p>
-                    <button className="inline-flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <input 
+                      type="file" 
+                      ref={restoreFileInputRef} 
+                      onChange={handleRestore} 
+                      className="hidden" 
+                      accept=".zip"
+                    />
+                    <button 
+                      onClick={() => restoreFileInputRef.current?.click()}
+                      disabled={isRestoring}
+                      className="inline-flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {isRestoring ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
                       Upload & Restore
                     </button>
                   </div>
