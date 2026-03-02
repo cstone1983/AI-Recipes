@@ -81,11 +81,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
 
 app.use(cors({
-  origin: function (origin, callback) {
-    // Always allow, effectively reflecting the request origin
-    callback(null, true);
-  },
-  credentials: true,
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-session-token']
 }));
@@ -929,10 +925,10 @@ async function startServer() {
     });
   }
 
-  // Omitting '0.0.0.0' allows Node to bind to both IPv4 (0.0.0.0) and IPv6 (::)
-  // This fixes Cloudflare Tunnel 1033 errors when 'localhost' resolves to IPv6 (::1)
-  const server = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT} (all interfaces)`);
+  // Bind explicitly to 0.0.0.0 for IPv4 and let the OS handle IPv6 if available.
+  // Sometimes omitting the host entirely causes issues on specific Linux kernels.
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT} (0.0.0.0)`);
   });
 
   const shutdown = async () => {
