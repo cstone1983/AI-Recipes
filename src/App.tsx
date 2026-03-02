@@ -244,32 +244,41 @@ export default function App() {
       const data = await res.json();
       
       if (data.success) {
-        // Start listening to the log stream
-        const eventSource = new EventSource(`/api/admin/update/stream?token=${token}`);
-        
-        eventSource.onmessage = (event) => {
-          const log = JSON.parse(event.data);
-          setUpdateLogs(prev => [...prev, log]);
+        const connectStream = () => {
+          const eventSource = new EventSource(`/api/admin/update/stream?token=${token}`);
           
-          if (log.includes('[DONE]')) {
-            eventSource.close();
-            if (log.includes('Exit code: 0')) {
-              setUpdateLogs(prev => [...prev, 'Update successful! The application will restart shortly.']);
-              setTimeout(() => {
-                window.location.reload();
-              }, 5000);
-            } else {
-              setUpdateLogs(prev => [...prev, 'Update failed. Please check the logs above.']);
-              setIsApplyingUpdate(false);
+          eventSource.onmessage = (event) => {
+            const log = JSON.parse(event.data);
+            setUpdateLogs(prev => {
+              if (prev.includes(log)) return prev;
+              return [...prev, log];
+            });
+            
+            if (log.includes('[DONE]')) {
+              eventSource.close();
+              if (log.includes('Exit code: 0')) {
+                setUpdateLogs(prev => [...prev, 'Update successful! The application will restart shortly.']);
+                setTimeout(() => {
+                  window.location.reload();
+                }, 5000);
+              } else {
+                setUpdateLogs(prev => [...prev, 'Update failed. Please check the logs above.']);
+                setIsApplyingUpdate(false);
+              }
             }
-          }
+          };
+
+          eventSource.onerror = () => {
+            console.error('SSE Error - Reconnecting...');
+            eventSource.close();
+            // Try to reconnect after a short delay if we're still applying update
+            setTimeout(() => {
+              if (isApplyingUpdate) connectStream();
+            }, 3000);
+          };
         };
 
-        eventSource.onerror = () => {
-          console.error('SSE Error');
-          eventSource.close();
-          // Don't necessarily fail here, as the server might be restarting
-        };
+        connectStream();
       } else {
         alert('Failed to start update: ' + data.error);
         setIsApplyingUpdate(false);
@@ -678,30 +687,37 @@ export default function App() {
           fixed inset-y-0 left-0 z-50 lg:relative lg:z-0
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}
-          bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-300 ease-in-out
+          bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-300 ease-in-out shrink-0
         `}
       >
-        <div className={`p-6 border-b border-zinc-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
-          <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'hidden' : 'flex'}`}>
-            <ChefHat className="text-emerald-500" size={28} />
-            <span className="font-serif text-xl font-bold tracking-tight">CulinaryBase</span>
-          </div>
-          {isSidebarCollapsed && <ChefHat className="text-emerald-500" size={28} />}
+        <div className={`h-16 border-b border-zinc-800 flex items-center shrink-0 ${isSidebarCollapsed ? 'justify-center' : 'px-6 justify-between'}`}>
+          {!isSidebarCollapsed && (
+            <div className="flex items-center gap-3 overflow-hidden">
+              <ChefHat className="text-emerald-500 shrink-0" size={28} />
+              <span className="font-serif text-xl font-bold tracking-tight truncate">CulinaryBase</span>
+            </div>
+          )}
+          {isSidebarCollapsed && (
+             <ChefHat className="text-emerald-500 shrink-0 lg:hidden" size={28} />
+          )}
+          
           <button 
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="hidden lg:block p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors"
+            className={`hidden lg:flex p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors`}
+            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            <Layout size={18} />
+            <Layout size={20} />
           </button>
+
           <button 
             onClick={() => setIsMobileMenuOpen(false)}
-            className="lg:hidden p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="lg:hidden p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 py-4 px-3 space-y-2 overflow-y-auto overflow-x-hidden">
           {[
             { id: 'importer', icon: Plus, label: 'Import' },
             { id: 'cookbook', icon: BookOpen, label: 'Cookbook' },
@@ -720,30 +736,30 @@ export default function App() {
                   setIsMobileMenuOpen(false);
                 }}
                 className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group
+                  w-full flex items-center rounded-xl transition-all group relative
+                  ${isSidebarCollapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2.5'}
                   ${isActive 
                     ? 'bg-emerald-600/10 text-emerald-500 font-medium' 
                     : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'}
-                  ${isSidebarCollapsed ? 'justify-center' : ''}
                 `}
                 title={isSidebarCollapsed ? item.label : ''}
               >
-                <Icon size={20} className={isActive ? 'text-emerald-500' : 'group-hover:scale-110 transition-transform'} />
-                {!isSidebarCollapsed && <span>{item.label}</span>}
+                <Icon size={20} className={`shrink-0 ${isActive ? 'text-emerald-500' : 'group-hover:scale-110 transition-transform'}`} />
+                {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
               </button>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-zinc-800 space-y-2">
-          <div className={`flex items-center gap-3 px-3 py-2 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm font-bold shrink-0">
+        <div className="p-3 border-t border-zinc-800 space-y-2 shrink-0">
+          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center py-2' : 'gap-3 px-3 py-2'}`}>
+            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm font-bold shrink-0 text-white">
               {user?.username?.[0]?.toUpperCase()}
             </div>
             {!isSidebarCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user?.username}</p>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{user?.role}</p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider truncate">{user?.role}</p>
               </div>
             )}
           </div>
@@ -755,13 +771,13 @@ export default function App() {
               setView('login');
             }}
             className={`
-              w-full flex items-center gap-3 px-3 py-2 rounded-xl text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-all
-              ${isSidebarCollapsed ? 'justify-center' : ''}
+              w-full flex items-center rounded-xl text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition-all
+              ${isSidebarCollapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2'}
             `}
             title={isSidebarCollapsed ? 'Logout' : ''}
           >
-            <LogOut size={18} />
-            {!isSidebarCollapsed && <span className="text-sm">Logout</span>}
+            <LogOut size={20} className="shrink-0" />
+            {!isSidebarCollapsed && <span className="text-sm truncate">Logout</span>}
           </button>
         </div>
       </aside>

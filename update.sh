@@ -78,20 +78,10 @@ if ! npx prisma db push --accept-data-loss=false; then
 
     if [ "$REPAIR_FAILED" = true ]; then
         echo "This can happen if the database file was severely corrupted."
-        echo "If you continue, the database will be reset and ALL DATA WILL BE LOST."
-        read -p "Would you like to reset the database to fix the corruption? (y/n) " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            echo "Resetting database..."
-            rm -f prisma/app.db
-            rm -f prisma/app.db.corrupted
-            npx prisma db push
-        else
-            echo "Update aborted. Please fix the database error manually to preserve your data."
-            # Restart the app since we stopped it
-            pm2 start culinarybase || pm2 start recipe-app || true
-            exit 1
-        fi
+        echo "Resetting database automatically to fix corruption..."
+        rm -f prisma/app.db
+        rm -f prisma/app.db.corrupted
+        npx prisma db push
     fi
 fi
 
@@ -99,15 +89,9 @@ fi
 echo "[5/6] Rebuilding frontend..."
 npm run build
 
-# 6. Restart PM2 service
-echo "[6/6] Restarting PM2 service..."
-if pm2 list | grep -q "culinarybase"; then
-  pm2 restart culinarybase
-elif pm2 list | grep -q "recipe-app"; then
-  pm2 restart recipe-app
-else
-  echo "Warning: PM2 process not found. Please start it manually."
-fi
+# 6. Restarting service
+echo "[6/6] Restarting service..."
+echo "The server will restart automatically when the process exits."
 
 echo "========================================"
 echo " Update Complete!"

@@ -468,17 +468,19 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
     updateLogs = ['Starting update process...'];
     updateEmitter.emit('log', 'Starting update process...');
     
-    // Disconnect Prisma to release database locks
-    await prisma.$disconnect();
-    updateLogs.push('Database disconnected to prevent locks.');
-    updateEmitter.emit('log', 'Database disconnected to prevent locks.');
+    // Disconnect Prisma to release database locks (non-blocking)
+    prisma.$disconnect().catch(err => console.error('Prisma disconnect failed:', err));
+    updateLogs.push('Database disconnect requested.');
+    updateEmitter.emit('log', 'Database disconnect requested.');
     
     // Send response immediately because the server will restart
     res.json({ success: true, message: 'Update process started. The system will restart shortly.' });
     
     // Run the update script in the background using spawn to stream output
     // Using 'bash update.sh' avoids permission denied errors if the file loses its executable bit
-    const child = spawn('bash', ['update.sh']);
+    const child = spawn('bash', ['update.sh'], {
+      env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' }
+    });
 
     child.stdout.on('data', (data) => {
       const lines = data.toString().split('\n').filter(Boolean);
