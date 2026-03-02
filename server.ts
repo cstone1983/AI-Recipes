@@ -25,10 +25,44 @@ process.on('unhandledRejection', (reason, promise) => console.error('Unhandled R
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// --- Data Directory Setup ---
+// Default to a 'user_data' folder one level up from the project root (if possible) or in root
+// But since we are in a container, let's default to ./user_data which is gitignored
+const USER_DATA_DIR = process.env.USER_DATA_DIR || path.join(__dirname, 'user_data');
+const DB_PATH = path.join(USER_DATA_DIR, 'app.db');
+const UPLOADS_DIR = path.join(USER_DATA_DIR, 'uploads');
+
+// Ensure directories exist
+if (!fs.existsSync(USER_DATA_DIR)) {
+  fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Migration: Check if old DB exists in data/app.db and new one doesn't
+const OLD_DB_PATH = path.join(__dirname, 'data', 'app.db');
+if (fs.existsSync(OLD_DB_PATH) && !fs.existsSync(DB_PATH)) {
+  console.log('Migrating database from data/app.db to user_data/app.db...');
+  fs.copyFileSync(OLD_DB_PATH, DB_PATH);
+  console.log('Migration complete.');
+}
+
+// Set DATABASE_URL for Prisma if not set
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = `file:${DB_PATH}`;
+}
+
 const app = express();
 const PORT = 3000;
 const VERSION = "1.1.0";
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: `file:${DB_PATH}`,
+    },
+  },
+});
 
 // Seed default admin user if no users exist
 async function seedAdmin() {
@@ -87,10 +121,7 @@ async function initGemini() {
 initGemini();
 
 // Ensure directories exist
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+// UPLOADS_DIR is already defined and created above
 const upload = multer({ dest: 'temp_uploads/' });
 
 // --- Global Middleware ---
