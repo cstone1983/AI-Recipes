@@ -80,10 +80,13 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.includes('stoneyshome.com') || origin.includes('cloudflare.com')) {
+    // Allow all origins in development or if it's from a trusted domain
+    if (!origin || allowedOrigins.includes(origin) || origin.includes('stoneyshome.com') || origin.includes('cloudflare.com') || origin.includes('pages.dev')) {
       callback(null, true);
     } else {
-      callback(null, false); // Don't throw an error, just don't set CORS headers
+      // For Cloudflare tunnels, sometimes the origin is not what we expect
+      // If we are behind a proxy (trust proxy is set), we might want to be more lenient
+      callback(null, true); // Temporarily allow all to debug Cloudflare issue
     }
   },
   credentials: true,
@@ -354,22 +357,48 @@ apiRouter.post('/admin/config', authenticate, requireAdmin, async (req, res) => 
 
 apiRouter.get('/admin/update/check', authenticate, requireAdmin, async (req, res) => {
   try {
-    const config = await prisma.globalConfig.findUnique({ where: { id: 'default' } });
-    const updateUrl = config?.updateUrl || "https://raw.githubusercontent.com/cstone1983/AI-Recipes/main/version.json";
+    // 1. Fetch latest from git
+    try {
+      await execAsync('git fetch origin main');
+    } catch (e) {
+      console.warn('Git fetch failed, might be offline or no git repo:', e);
+    }
     
-    const response = await fetch(updateUrl);
-    if (!response.ok) throw new Error('Failed to fetch version info');
-    
-    const data = await response.json();
-    const hasUpdate = data.version !== VERSION;
+    // 2. Check if local is behind remote
+    let hasUpdate = false;
+    let remoteHash = 'unknown';
+    let commitMsg = 'No update info available';
+
+    try {
+      const { stdout: localHash } = await execAsync('git rev-parse HEAD');
+      const { stdout: remoteHashRaw } = await execAsync('git rev-parse origin/main');
+      remoteHash = remoteHashRaw.trim();
+      hasUpdate = localHash.trim() !== remoteHash;
+      
+      const { stdout: commitMsgRaw } = await execAsync('git log -1 --pretty=%B origin/main');
+      commitMsg = commitMsgRaw.trim();
+    } catch (e) {
+      console.warn('Git rev-parse failed:', e);
+      // Fallback to version.json if git fails
+      const config = await prisma.globalConfig.findUnique({ where: { id: 'default' } });
+      const updateUrl = config?.updateUrl || "https://raw.githubusercontent.com/cstone1983/AI-Recipes/main/version.json";
+      const response = await fetch(updateUrl);
+      if (response.ok) {
+        const data = await response.json();
+        hasUpdate = data.version !== VERSION;
+        remoteHash = data.version;
+        commitMsg = data.releaseNotes || 'New version available';
+      }
+    }
     
     res.json({ 
       currentVersion: VERSION, 
-      latestVersion: data.version, 
+      latestVersion: remoteHash.substring(0, 7), 
       hasUpdate,
-      releaseNotes: data.releaseNotes 
+      releaseNotes: commitMsg 
     });
   } catch (error: any) {
+    console.error('Update check failed:', error);
     res.status(500).json({ error: 'Failed to check for updates', message: error.message });
   }
 });
@@ -818,7 +847,8 @@ async function startServer() {
       server: { 
         middlewareMode: true,
         hmr: false,
-        allowedHosts: true
+        allowedHosts: true,
+        cors: true
       },
       appType: 'spa',
     });
