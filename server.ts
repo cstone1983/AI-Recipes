@@ -17,6 +17,10 @@ import { Document, Packer, Paragraph, HeadingLevel, TextRun } from 'docx';
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
 
+// Prevent silent crashes from unhandled errors
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
+process.on('unhandledRejection', (reason, promise) => console.error('Unhandled Rejection:', reason));
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -912,7 +916,8 @@ async function startServer() {
         middlewareMode: true,
         hmr: false,
         allowedHosts: true,
-        cors: true
+        cors: true,
+        host: true
       },
       appType: 'spa',
     });
@@ -924,8 +929,10 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  // Omitting '0.0.0.0' allows Node to bind to both IPv4 (0.0.0.0) and IPv6 (::)
+  // This fixes Cloudflare Tunnel 1033 errors when 'localhost' resolves to IPv6 (::1)
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} (all interfaces)`);
   });
 
   const shutdown = async () => {
