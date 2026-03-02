@@ -74,6 +74,12 @@ export default function App() {
         const res = await fetch('/api/health', { headers: getHeaders() });
         if (res.status === 503) {
           setIsApplyingUpdate(true);
+        } else if (res.ok) {
+          const data = await res.json();
+          if (data.isUpdating === false && isApplyingUpdate) {
+            console.log('Server says update is finished. Clearing UI.');
+            setIsApplyingUpdate(false);
+          }
         }
       } catch (e) {
         console.error('Status check failed', e);
@@ -81,9 +87,9 @@ export default function App() {
     };
     
     checkStatus();
-    const interval = setInterval(checkStatus, 30000); // Check every 30s
+    const interval = setInterval(checkStatus, 10000); // Check every 10s
     return () => clearInterval(interval);
-  }, [token]);
+  }, [token, isApplyingUpdate]);
 
   // Handle SSE stream for updates
   useEffect(() => {
@@ -1702,16 +1708,25 @@ export default function App() {
                 </div>
 
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-medium flex items-center gap-2"><RefreshCw className={isCheckingUpdate ? 'animate-spin text-emerald-500' : 'text-emerald-500'} size={18} /> System Update</h2>
-                    <button 
-                      onClick={checkUpdate}
-                      disabled={isCheckingUpdate}
-                      className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      Check for Updates
-                    </button>
-                  </div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-lg font-medium flex items-center gap-2"><RefreshCw className={isCheckingUpdate ? 'animate-spin text-emerald-500' : 'text-emerald-500'} size={18} /> System Update</h2>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={handleCancelUpdate}
+                          className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 px-2 py-1 rounded transition-colors"
+                          title="Force reset the updating state if the system gets stuck"
+                        >
+                          Force Reset State
+                        </button>
+                        <button 
+                          onClick={checkUpdate}
+                          disabled={isCheckingUpdate}
+                          className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Check for Updates
+                        </button>
+                      </div>
+                    </div>
 
                   {updateInfo ? (
                     <div className="space-y-4">
