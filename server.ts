@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
@@ -28,6 +29,29 @@ const app = express();
 const PORT = 3000;
 const VERSION = "1.1.0";
 const prisma = new PrismaClient();
+
+// Seed default admin user if no users exist
+async function seedAdmin() {
+  try {
+    const userCount = await prisma.user.count();
+    if (userCount === 0) {
+      console.log('No users found. Creating default admin user...');
+      const hashedPassword = await bcrypt.hash('admin', 10);
+      await prisma.user.create({
+        data: {
+          email: 'admin@example.com',
+          username: 'admin',
+          password: hashedPassword,
+          role: 'Admin'
+        }
+      });
+      console.log('Default admin user created: admin / admin');
+    }
+  } catch (error) {
+    console.error('Failed to seed admin user:', error);
+  }
+}
+seedAdmin();
 
 // Update state
 let isUpdating = false;
