@@ -444,10 +444,15 @@ export default function App() {
     }
   };
 
-  const handleSuggestImage = async () => {
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [imagePickerTab, setImagePickerTab] = useState<'url' | 'upload' | 'ai'>('ai');
+  const [suggestedImages, setSuggestedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleSuggestImages = async () => {
     if (!activeRecipe.title) return alert('Please enter a title first');
-    setExtractionStatus('Finding image...');
-    setIsImporting(true); // Reuse importing state for spinner
+    setExtractionStatus('Finding images...');
+    setIsImporting(true); 
     try {
       const res = await fetch('/api/recipes/suggest-image', {
         method: 'POST',
@@ -455,16 +460,46 @@ export default function App() {
         body: JSON.stringify({ title: activeRecipe.title })
       });
       const data = await res.json();
-      if (data.imageUrl) {
-        setActiveRecipe({ ...activeRecipe, imageUrl: data.imageUrl });
+      if (data.imageUrls && data.imageUrls.length > 0) {
+        setSuggestedImages(data.imageUrls);
       } else {
-        alert('No image found');
+        alert('No images found');
       }
     } catch (e) {
-      alert('Failed to find image');
+      alert('Failed to find images');
     } finally {
       setIsImporting(false);
       setExtractionStatus('');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveRecipe({ ...activeRecipe, imageUrl: data.imageUrl });
+        setShowImagePicker(false);
+      } else {
+        alert('Upload failed: ' + data.error);
+      }
+    } catch (error) {
+      alert('Upload failed');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -1082,24 +1117,37 @@ export default function App() {
                           />
                         </div>
                         <div className="col-span-2 md:col-span-1">
-                          <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Image URL</label>
-                          <div className="flex gap-2">
-                            <input 
-                              type="url" 
-                              value={activeRecipe.imageUrl || ''}
-                              onChange={e => setActiveRecipe({...activeRecipe, imageUrl: e.target.value})}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-emerald-500"
-                              placeholder="https://..."
-                              required
-                            />
-                            <button 
-                              onClick={handleSuggestImage}
-                              disabled={isImporting || !activeRecipe.title}
-                              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1"
-                              title="Find Image with AI"
-                            >
-                              <ImageIcon size={14} /> Find
-                            </button>
+                          <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Recipe Image</label>
+                          <div className="flex gap-2 items-start">
+                            <div className="relative group w-24 h-24 bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden flex-shrink-0">
+                              {activeRecipe.imageUrl ? (
+                                <img src={activeRecipe.imageUrl} alt="Recipe" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                                  <ImageIcon size={24} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <button 
+                                onClick={() => {
+                                  setShowImagePicker(true);
+                                  if (activeRecipe.title && suggestedImages.length === 0) {
+                                    handleSuggestImages();
+                                  }
+                                }}
+                                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 mb-2"
+                              >
+                                <ImageIcon size={16} /> Select / Upload Image
+                              </button>
+                              <input 
+                                type="text" 
+                                value={activeRecipe.imageUrl || ''}
+                                onChange={e => setActiveRecipe({...activeRecipe, imageUrl: e.target.value})}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-500 focus:outline-none focus:border-emerald-500"
+                                placeholder="Or paste URL directly..."
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="col-span-2 md:col-span-1">
@@ -1773,6 +1821,155 @@ export default function App() {
                   </a>
                 </div>
               </motion.div>
+            )}
+
+            {/* IMAGE PICKER MODAL */}
+            {showImagePicker && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+                >
+                  <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/50">
+                    <h2 className="text-lg font-serif">Select Recipe Image</h2>
+                    <button onClick={() => setShowImagePicker(false)} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex border-b border-zinc-800">
+                    <button 
+                      onClick={() => setImagePickerTab('ai')}
+                      className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${imagePickerTab === 'ai' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      AI Suggestions
+                    </button>
+                    <button 
+                      onClick={() => setImagePickerTab('upload')}
+                      className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${imagePickerTab === 'upload' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Upload File
+                    </button>
+                    <button 
+                      onClick={() => setImagePickerTab('url')}
+                      className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${imagePickerTab === 'url' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Image URL
+                    </button>
+                  </div>
+
+                  <div className="p-6 overflow-y-auto flex-1">
+                    {imagePickerTab === 'ai' && (
+                      <div className="space-y-4">
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={activeRecipe.title || ''}
+                            readOnly
+                            className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-400"
+                            placeholder="Recipe title..."
+                          />
+                          <button 
+                            onClick={handleSuggestImages}
+                            disabled={isImporting || !activeRecipe.title}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                          >
+                            {isImporting ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                            Refresh
+                          </button>
+                        </div>
+                        
+                        {suggestedImages.length > 0 ? (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {suggestedImages.map((img, idx) => (
+                              <button 
+                                key={idx}
+                                onClick={() => {
+                                  setActiveRecipe({ ...activeRecipe, imageUrl: img });
+                                  setShowImagePicker(false);
+                                }}
+                                className="group relative aspect-square rounded-xl overflow-hidden border border-zinc-800 hover:border-emerald-500 transition-all"
+                              >
+                                <img src={img} alt={`Suggestion ${idx}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" referrerPolicy="no-referrer" />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <span className="bg-emerald-600 text-white px-3 py-1 rounded-full text-xs font-medium">Select</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-12 text-zinc-500 border-2 border-dashed border-zinc-800 rounded-xl">
+                            {isImporting ? 'Searching for delicious images...' : 'No suggestions yet. Click Refresh to search.'}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {imagePickerTab === 'upload' && (
+                      <div className="flex flex-col items-center justify-center h-full py-12 border-2 border-dashed border-zinc-800 rounded-xl bg-zinc-950/30">
+                        <input 
+                          type="file" 
+                          id="image-upload" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          disabled={isUploading}
+                        />
+                        <label 
+                          htmlFor="image-upload" 
+                          className={`flex flex-col items-center gap-4 cursor-pointer p-8 transition-opacity ${isUploading ? 'opacity-50' : 'hover:opacity-80'}`}
+                        >
+                          <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800">
+                            {isUploading ? <Loader2 className="animate-spin text-emerald-500" size={32} /> : <Upload className="text-zinc-400" size={32} />}
+                          </div>
+                          <div className="text-center">
+                            <p className="text-lg font-medium text-zinc-200">Click to Upload Image</p>
+                            <p className="text-sm text-zinc-500 mt-1">Supports JPG, PNG, WEBP (Max 5MB)</p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
+                    {imagePickerTab === 'url' && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-zinc-400 mb-2">Paste Image URL</label>
+                          <input 
+                            type="url" 
+                            value={activeRecipe.imageUrl || ''}
+                            onChange={e => setActiveRecipe({...activeRecipe, imageUrl: e.target.value})}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-emerald-500"
+                            placeholder="https://example.com/image.jpg"
+                          />
+                        </div>
+                        {activeRecipe.imageUrl && (
+                          <div className="mt-4">
+                            <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">Preview</p>
+                            <div className="aspect-video bg-zinc-950 rounded-xl border border-zinc-800 overflow-hidden">
+                              <img 
+                                src={activeRecipe.imageUrl} 
+                                alt="Preview" 
+                                className="w-full h-full object-contain" 
+                                referrerPolicy="no-referrer"
+                                onError={(e) => (e.target as HTMLImageElement).src = 'https://placehold.co/600x400?text=Invalid+URL'}
+                              />
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                              <button 
+                                onClick={() => setShowImagePicker(false)}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+                              >
+                                Use This Image
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
             )}
 
             {/* EXPORT OPTIONS MODAL */}

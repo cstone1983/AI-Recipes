@@ -99,6 +99,33 @@ app.set('trust proxy', true);
 let ai: GoogleGenAI | null = null;
 let currentGeminiModel = "gemini-3-flash-preview";
 
+// Configure Multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'recipe-' + uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+});
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(UPLOADS_DIR));
+
 async function initGemini() {
   try {
     const config = await prisma.globalConfig.findUnique({ where: { id: 'default' } });
@@ -122,7 +149,7 @@ initGemini();
 
 // Ensure directories exist
 // UPLOADS_DIR is already defined and created above
-const upload = multer({ dest: 'temp_uploads/' });
+// const upload = multer({ dest: 'temp_uploads/' });
 
 // --- Global Middleware ---
 const LOG_FILE = path.join(__dirname, 'server.log');
@@ -612,15 +639,27 @@ apiRouter.post('/admin/update/cancel', authenticate, requireAdmin, async (req, r
   }
 });
 
+apiRouter.post('/upload', authenticate, upload.single('image'), (req: any, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const imageUrl = `/uploads/${req.file.filename}`;
+    res.json({ success: true, imageUrl });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Upload failed', message: error.message });
+  }
+});
+
 apiRouter.post('/recipes/suggest-image', authenticate, async (req, res) => {
   try {
     const { title } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
     if (!ai) return res.status(500).json({ error: 'AI not configured' });
 
-    const prompt = `Find a high-quality, public image URL for the recipe: "${title}". 
-    Return a JSON object with a single property "imageUrl". 
-    If you cannot find a specific image, find a generic high-quality image of this dish.`;
+    const prompt = `Find 4 high-quality, public image URLs for the recipe: "${title}". 
+    Return a JSON object with a property "imageUrls" which is an array of strings.
+    If you cannot find specific images, find generic high-quality images of this dish.`;
 
     const response = await ai.models.generateContent({
       model: currentGeminiModel,
@@ -631,14 +670,19 @@ apiRouter.post('/recipes/suggest-image', authenticate, async (req, res) => {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            imageUrl: { type: Type.STRING }
+            imageUrls: { 
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
           }
         }
       }
     });
 
     const result = JSON.parse(response.text || '{}');
-    res.json({ imageUrl: result.imageUrl || '' });
+    // Fallback for single image response if model ignores schema
+    const images = result.imageUrls || (result.imageUrl ? [result.imageUrl] : []);
+    res.json({ imageUrls: images });
   } catch (error: any) {
     console.error('Image suggestion error:', error);
     res.status(500).json({ error: 'Failed to suggest image' });
