@@ -454,7 +454,8 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
     res.json({ success: true, message: 'Update process started. The system will restart shortly.' });
     
     // Run the update script in the background using spawn to stream output
-    const child = spawn('./update.sh', [], { shell: true });
+    // Using 'bash update.sh' avoids permission denied errors if the file loses its executable bit
+    const child = spawn('bash', ['update.sh']);
 
     child.stdout.on('data', (data) => {
       const lines = data.toString().split('\n').filter(Boolean);
