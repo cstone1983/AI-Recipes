@@ -581,8 +581,9 @@ export default function App() {
                 body: JSON.stringify({ title: recipe.title })
               });
               const imgData = await imgRes.json();
-              if (imgData.imageUrl) {
-                recipe.imageUrl = imgData.imageUrl;
+              if (imgData.imageUrls && imgData.imageUrls.length > 0) {
+                recipe.imageUrl = imgData.imageUrls[0];
+                setSuggestedImages(imgData.imageUrls);
               }
             } catch (e) {
               console.warn('Auto-image suggestion failed', e);
@@ -591,7 +592,8 @@ export default function App() {
 
           setActiveRecipe(recipe);
           setImportInput('');
-          setIsEditing(false);
+          setIsEditing(true); // Switch to edit mode so user can review/save
+          setView('importer'); // Ensure we stay in the importer/editor view
         } else {
           const errorMsg = data.message ? `${data.error}: ${data.message}` : data.error;
           alert('Failed to import recipe: ' + (errorMsg || 'Unknown error'));
@@ -1132,6 +1134,7 @@ export default function App() {
                               <button 
                                 onClick={() => {
                                   setShowImagePicker(true);
+                                  // Only suggest if we have a title and no suggestions yet
                                   if (activeRecipe.title && suggestedImages.length === 0) {
                                     handleSuggestImages();
                                   }
