@@ -220,10 +220,39 @@ const apiRouter = express.Router();
 
 // Block most API requests during an update
 apiRouter.use((req, res, next) => {
-  if (isUpdating && req.path !== '/admin/update/stream' && req.path !== '/health') {
+  // Allow health checks, update stream, and auth routes (so admins can login to cancel)
+  if (isUpdating && 
+      !req.path.startsWith('/admin/update/') && 
+      !req.path.startsWith('/auth/') && 
+      req.path !== '/health') {
     return res.status(503).json({ error: 'System is updating. Please wait.' });
   }
   next();
+});
+
+apiRouter.post('/admin/update/cancel', authenticate, requireAdmin, (req, res) => {
+  if (!isUpdating) {
+    return res.status(400).json({ error: 'No update in progress' });
+  }
+
+  try {
+    const child = (global as any).updateProcess;
+    if (child) {
+      child.kill();
+      (global as any).updateProcess = null;
+    }
+    isUpdating = false;
+    updateLogs.push('Update cancelled by user.');
+    updateEmitter.emit('log', 'Update cancelled by user.');
+    updateEmitter.emit('done', 1); // Emit failure code
+    
+    // Reconnect Prisma
+    prisma.$connect().catch(console.error);
+    
+    res.json({ success: true, message: 'Update cancelled successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to cancel update', message: error.message });
+  }
 });
 
 apiRouter.get('/health', async (req, res) => {
