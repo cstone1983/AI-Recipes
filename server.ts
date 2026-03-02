@@ -24,6 +24,9 @@ const PORT = 3000;
 const VERSION = "1.1.0";
 const prisma = new PrismaClient();
 
+// Trust proxy for Cloudflare/Tunnels
+app.set('trust proxy', 1);
+
 // Initialize Gemini API
 let ai: GoogleGenAI | null = null;
 let currentGeminiModel = "gemini-3-flash-preview";
@@ -77,7 +80,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || origin.includes('stoneyshome.com') || origin.includes('cloudflare.com')) {
       callback(null, true);
     } else {
       callback(null, false); // Don't throw an error, just don't set CORS headers
@@ -814,7 +817,8 @@ async function startServer() {
     vite = await createViteServer({
       server: { 
         middlewareMode: true,
-        hmr: false 
+        hmr: false,
+        allowedHosts: true
       },
       appType: 'spa',
     });
