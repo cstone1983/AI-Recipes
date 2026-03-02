@@ -9,12 +9,13 @@ import multer from 'multer';
 import extract from 'extract-zip';
 import { createServer as createViteServer } from 'vite';
 import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 import { Document, Packer, Paragraph, HeadingLevel, TextRun } from 'docx';
 import crypto from 'crypto';
+import { EventEmitter } from 'events';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +24,11 @@ const app = express();
 const PORT = 3000;
 const VERSION = "1.1.0";
 const prisma = new PrismaClient();
+
+// Update state
+let isUpdating = false;
+let updateLogs: string[] = [];
+const updateEmitter = new EventEmitter();
 
 // Trust proxy for Cloudflare/Tunnels
 app.set('trust proxy', 1);
@@ -128,6 +134,14 @@ const requireAdmin = (req: any, res: any, next: any) => {
 
 // --- API Router ---
 const apiRouter = express.Router();
+
+// Block most API requests during an update
+apiRouter.use((req, res, next) => {
+  if (isUpdating && req.path !== '/admin/update/stream' && req.path !== '/health') {
+    return res.status(503).json({ error: 'System is updating. Please wait.' });
+  }
+  next();
+});
 
 apiRouter.get('/health', async (req, res) => {
   try {
@@ -396,23 +410,86 @@ apiRouter.get('/admin/update/check', authenticate, requireAdmin, async (req, res
 
 const execAsync = promisify(exec);
 
+apiRouter.get('/admin/update/stream', authenticate, requireAdmin, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  // Send existing logs immediately
+  updateLogs.forEach(log => {
+    res.write(`data: ${JSON.stringify(log)}\n\n`);
+  });
+
+  const onLog = (log: string) => {
+    res.write(`data: ${JSON.stringify(log)}\n\n`);
+  };
+
+  const onDone = (code: number) => {
+    res.write(`data: ${JSON.stringify(`[DONE] Exit code: ${code}`)}\n\n`);
+    res.end();
+  };
+
+  updateEmitter.on('log', onLog);
+  updateEmitter.on('done', onDone);
+
+  req.on('close', () => {
+    updateEmitter.off('log', onLog);
+    updateEmitter.off('done', onDone);
+  });
+});
+
 apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, res) => {
   try {
     console.log('Update triggered via API. Version:', req.body.version);
     
+    if (isUpdating) {
+      return res.status(400).json({ error: 'An update is already in progress' });
+    }
+
+    isUpdating = true;
+    updateLogs = ['Starting update process...'];
+    updateEmitter.emit('log', 'Starting update process...');
+    
+    // Disconnect Prisma to release database locks
+    await prisma.$disconnect();
+    updateLogs.push('Database disconnected to prevent locks.');
+    updateEmitter.emit('log', 'Database disconnected to prevent locks.');
+    
     // Send response immediately because the server will restart
     res.json({ success: true, message: 'Update process started. The system will restart shortly.' });
     
-    // Run the update script in the background
-    exec('./update.sh', (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Update script error: ${error.message}`);
-        return;
-      }
-      console.log(`Update script output: ${stdout}`);
-      if (stderr) console.error(`Update script stderr: ${stderr}`);
+    // Run the update script in the background using spawn to stream output
+    const child = spawn('./update.sh', [], { shell: true });
+
+    child.stdout.on('data', (data) => {
+      const lines = data.toString().split('\n').filter(Boolean);
+      lines.forEach((line: string) => {
+        updateLogs.push(line);
+        updateEmitter.emit('log', line);
+      });
     });
+
+    child.stderr.on('data', (data) => {
+      const lines = data.toString().split('\n').filter(Boolean);
+      lines.forEach((line: string) => {
+        updateLogs.push(`ERROR: ${line}`);
+        updateEmitter.emit('log', `ERROR: ${line}`);
+      });
+    });
+
+    child.on('close', (code) => {
+      updateLogs.push(`Update script finished with code ${code}`);
+      updateEmitter.emit('log', `Update script finished with code ${code}`);
+      updateEmitter.emit('done', code ?? 0);
+      if (code !== 0) {
+        // If it failed, we might need to reset the updating state so they can try again
+        isUpdating = false;
+        prisma.$connect().catch(console.error); // Reconnect DB
+      }
+    });
+
   } catch (error: any) {
+    isUpdating = false;
     res.status(500).json({ error: 'Failed to apply update', message: error.message });
   }
 });

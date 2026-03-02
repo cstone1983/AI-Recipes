@@ -39,13 +39,6 @@ fi
 echo "[4/6] Applying database migrations..."
 npx prisma generate
 
-# Stop the app temporarily to prevent database locks/corruption during schema push
-if pm2 list | grep -q "culinarybase"; then
-  pm2 stop culinarybase
-elif pm2 list | grep -q "recipe-app"; then
-  pm2 stop recipe-app
-fi
-
 # Function to attempt database repair
 attempt_repair() {
     echo "Attempting to repair corrupted database..."

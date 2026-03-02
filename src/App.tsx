@@ -58,6 +58,7 @@ export default function App() {
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
+  const [updateLogs, setUpdateLogs] = useState<string[]>([]);
   const [updateUrl, setUpdateUrl] = useState('');
 
   // Export Options State
@@ -145,6 +146,15 @@ export default function App() {
     }
   }, [view, user]);
 
+  useEffect(() => {
+    if (isApplyingUpdate) {
+      const element = document.getElementById('update-logs-end');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [updateLogs, isApplyingUpdate]);
+
   const fetchRecipes = async () => {
     try {
       const res = await fetch('/api/recipes', { headers: getHeaders() });
@@ -218,6 +228,8 @@ export default function App() {
   const applyUpdate = async () => {
     if (!updateInfo?.hasUpdate) return;
     setIsApplyingUpdate(true);
+    setUpdateLogs(['Initializing update...']);
+    
     try {
       const res = await fetch('/api/admin/update/apply', {
         method: 'POST',
@@ -225,12 +237,40 @@ export default function App() {
         body: JSON.stringify({ version: updateInfo.latestVersion })
       });
       const data = await res.json();
+      
       if (data.success) {
-        alert(data.message);
+        // Start listening to the log stream
+        const eventSource = new EventSource(`/api/admin/update/stream?token=${token}`);
+        
+        eventSource.onmessage = (event) => {
+          const log = JSON.parse(event.data);
+          setUpdateLogs(prev => [...prev, log]);
+          
+          if (log.includes('[DONE]')) {
+            eventSource.close();
+            if (log.includes('Exit code: 0')) {
+              setUpdateLogs(prev => [...prev, 'Update successful! The application will restart shortly.']);
+              setTimeout(() => {
+                window.location.reload();
+              }, 5000);
+            } else {
+              setUpdateLogs(prev => [...prev, 'Update failed. Please check the logs above.']);
+              setIsApplyingUpdate(false);
+            }
+          }
+        };
+
+        eventSource.onerror = () => {
+          console.error('SSE Error');
+          eventSource.close();
+          // Don't necessarily fail here, as the server might be restarting
+        };
+      } else {
+        alert('Failed to start update: ' + data.error);
+        setIsApplyingUpdate(false);
       }
     } catch (e) {
       alert('Failed to apply update');
-    } finally {
       setIsApplyingUpdate(false);
     }
   };
@@ -1247,15 +1287,45 @@ export default function App() {
                         <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                           <h3 className="text-sm font-medium text-emerald-400 mb-2">New Version Available!</h3>
                           <p className="text-xs text-zinc-400 mb-4">{updateInfo.releaseNotes || 'A new version is available with bug fixes and improvements.'}</p>
-                          <button 
-                            onClick={applyUpdate}
-                            disabled={isApplyingUpdate}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                          >
-                            {isApplyingUpdate ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-                            {isApplyingUpdate ? 'Applying Update...' : 'Apply Update Now'}
-                          </button>
-                          <p className="text-[10px] text-zinc-500 mt-2 text-center italic">Updating will maintain all your recipes, users, and settings.</p>
+                          
+                          {!isApplyingUpdate ? (
+                            <button 
+                              onClick={applyUpdate}
+                              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Download size={16} />
+                              Apply Update Now
+                            </button>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-3 text-emerald-400">
+                                <Loader2 className="animate-spin" size={16} />
+                                <span className="text-sm font-medium">Applying Update...</span>
+                              </div>
+                              
+                              <div className="bg-black/40 rounded-lg p-3 font-mono text-[10px] text-zinc-400 h-48 overflow-y-auto border border-zinc-800 space-y-1">
+                                {updateLogs.map((log, i) => (
+                                  <div key={i} className={log.startsWith('ERROR') ? 'text-red-400' : ''}>
+                                    {log}
+                                  </div>
+                                ))}
+                                <div id="update-logs-end" />
+                              </div>
+                              
+                              <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                <motion.div 
+                                  className="bg-emerald-500 h-full"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: '100%' }}
+                                  transition={{ duration: 60, ease: "linear" }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-zinc-500 text-center italic">Please do not close this window. The system will restart automatically.</p>
+                            </div>
+                          )}
+                          {!isApplyingUpdate && (
+                            <p className="text-[10px] text-zinc-500 mt-2 text-center italic">Updating will maintain all your recipes, users, and settings.</p>
+                          )}
                         </div>
                       )}
                     </div>
