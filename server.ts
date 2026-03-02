@@ -79,16 +79,7 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow all origins in development or if it's from a trusted domain
-    if (!origin || allowedOrigins.includes(origin) || origin.includes('stoneyshome.com') || origin.includes('cloudflare.com') || origin.includes('pages.dev')) {
-      callback(null, true);
-    } else {
-      // For Cloudflare tunnels, sometimes the origin is not what we expect
-      // If we are behind a proxy (trust proxy is set), we might want to be more lenient
-      callback(null, true); // Temporarily allow all to debug Cloudflare issue
-    }
-  },
+  origin: true, // Allow all origins explicitly
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-session-token']
