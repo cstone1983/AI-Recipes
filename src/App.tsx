@@ -66,6 +66,83 @@ export default function App() {
   const [updateLogs, setUpdateLogs] = useState<string[]>([]);
   const [updateUrl, setUpdateUrl] = useState('');
 
+  // Global check for system update status
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch('/api/health', { headers: getHeaders() });
+        if (res.status === 503) {
+          setIsApplyingUpdate(true);
+        }
+      } catch (e) {
+        console.error('Status check failed', e);
+      }
+    };
+    
+    checkStatus();
+    const interval = setInterval(checkStatus, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, [token]);
+
+  // Handle SSE stream for updates
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectStream = () => {
+      if (!isApplyingUpdate || !token) return;
+      
+      console.log('Connecting to update stream...');
+      // Note: EventSource doesn't support custom headers, so we pass token in query param
+      eventSource = new EventSource(`/api/admin/update/stream?token=${token}`);
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const log = JSON.parse(event.data);
+          setUpdateLogs(prev => {
+            if (prev.includes(log)) return prev;
+            return [...prev, log];
+          });
+          
+          if (log.includes('[DONE]')) {
+            eventSource?.close();
+            if (log.includes('Exit code: 0')) {
+              setUpdateLogs(prev => [...prev, 'Update successful! The application will restart shortly.']);
+              setTimeout(() => {
+                window.location.reload();
+              }, 5000);
+            } else {
+              setUpdateLogs(prev => [...prev, 'Update failed or finished with errors.']);
+              // Don't auto-close so user can see logs, but allow them to exit
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse log', e);
+        }
+      };
+
+      eventSource.onerror = () => {
+        console.warn('SSE Connection lost. Reconnecting...');
+        eventSource?.close();
+        if (isApplyingUpdate) {
+          reconnectTimeout = setTimeout(connectStream, 3000);
+        }
+      };
+    };
+
+    if (isApplyingUpdate) {
+      connectStream();
+    } else {
+      eventSource?.close();
+    }
+
+    return () => {
+      eventSource?.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
+  }, [isApplyingUpdate, token]);
+
   // Export Options State
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [exportOptions, setExportOptions] = useState({
@@ -163,6 +240,10 @@ export default function App() {
   const fetchRecipes = async () => {
     try {
       const res = await fetch(`/api/recipes?filter=${recipeOwnershipFilter}`, { headers: getHeaders() });
+      if (res.status === 503) {
+        setIsApplyingUpdate(true);
+        return;
+      }
       const data = await res.json();
       if (Array.isArray(data)) setRecipes(data);
     } catch (e) {
@@ -243,43 +324,7 @@ export default function App() {
       });
       const data = await res.json();
       
-      if (data.success) {
-        const connectStream = () => {
-          const eventSource = new EventSource(`/api/admin/update/stream?token=${token}`);
-          
-          eventSource.onmessage = (event) => {
-            const log = JSON.parse(event.data);
-            setUpdateLogs(prev => {
-              if (prev.includes(log)) return prev;
-              return [...prev, log];
-            });
-            
-            if (log.includes('[DONE]')) {
-              eventSource.close();
-              if (log.includes('Exit code: 0')) {
-                setUpdateLogs(prev => [...prev, 'Update successful! The application will restart shortly.']);
-                setTimeout(() => {
-                  window.location.reload();
-                }, 5000);
-              } else {
-                setUpdateLogs(prev => [...prev, 'Update failed. Please check the logs above.']);
-                setIsApplyingUpdate(false);
-              }
-            }
-          };
-
-          eventSource.onerror = () => {
-            console.error('SSE Error - Reconnecting...');
-            eventSource.close();
-            // Try to reconnect after a short delay if we're still applying update
-            setTimeout(() => {
-              if (isApplyingUpdate) connectStream();
-            }, 3000);
-          };
-        };
-
-        connectStream();
-      } else {
+      if (!data.success) {
         alert('Failed to start update: ' + data.error);
         setIsApplyingUpdate(false);
       }

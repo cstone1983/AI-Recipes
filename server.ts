@@ -600,17 +600,39 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
     // Store child process reference for cancellation
     (global as any).updateProcess = child;
 
-    // Timeout after 5 minutes
+    const cleanup = (code: number | null) => {
+      if (timeout) clearTimeout(timeout);
+      (global as any).updateProcess = null;
+      isUpdating = false;
+      
+      const exitCode = code ?? 0;
+      updateLogs.push(`Update process exited with code ${exitCode}`);
+      updateEmitter.emit('log', `Update process exited with code ${exitCode}`);
+      updateEmitter.emit('done', exitCode);
+      
+      // Reconnect Prisma
+      prisma.$connect().catch(console.error);
+
+      if (exitCode === 0) {
+        updateLogs.push('Update successful. Restarting server in 2 seconds...');
+        updateEmitter.emit('log', 'Update successful. Restarting server in 2 seconds...');
+        setTimeout(() => {
+          console.log('Exiting process for restart...');
+          process.exit(0);
+        }, 2000);
+      }
+    };
+
+    // Timeout after 10 minutes (npm build can be slow)
     const timeout = setTimeout(() => {
       if (child.exitCode === null) {
-        child.kill();
-        updateLogs.push('ERROR: Update timed out after 5 minutes.');
-        updateEmitter.emit('log', 'ERROR: Update timed out after 5 minutes.');
-        updateEmitter.emit('done', 1);
-        isUpdating = false;
-        prisma.$connect().catch(console.error);
+        console.error('Update timed out. Killing process.');
+        child.kill('SIGKILL');
+        updateLogs.push('ERROR: Update timed out after 10 minutes.');
+        updateEmitter.emit('log', 'ERROR: Update timed out after 10 minutes.');
+        cleanup(1);
       }
-    }, 5 * 60 * 1000);
+    }, 10 * 60 * 1000);
 
     child.stdout.on('data', (data) => {
       const lines = data.toString().split('\n').filter(Boolean);
@@ -628,17 +650,14 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
       });
     });
 
+    child.on('error', (err) => {
+      updateLogs.push(`PROCESS ERROR: ${err.message}`);
+      updateEmitter.emit('log', `PROCESS ERROR: ${err.message}`);
+      cleanup(1);
+    });
+
     child.on('close', (code) => {
-      clearTimeout(timeout);
-      (global as any).updateProcess = null;
-      updateLogs.push(`Update script finished with code ${code}`);
-      updateEmitter.emit('log', `Update script finished with code ${code}`);
-      updateEmitter.emit('done', code ?? 0);
-      if (code !== 0) {
-        // If it failed, we might need to reset the updating state so they can try again
-        isUpdating = false;
-        prisma.$connect().catch(console.error); // Reconnect DB
-      }
+      cleanup(code);
     });
 
   } catch (error: any) {
