@@ -37,20 +37,33 @@ fi
 
 # 4. Apply database migrations
 echo "[4/6] Applying database migrations..."
+
+# Load environment variables from .env if present
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
+
 npx prisma generate
 
 # Function to attempt database repair
 attempt_repair() {
     echo "Attempting to repair corrupted database..."
+    DB_FILE="user_data/app.db"
+    
+    if [ ! -f "$DB_FILE" ]; then
+        echo "❌ Database file not found at $DB_FILE"
+        return 1
+    fi
+
     if command -v sqlite3 &> /dev/null; then
         # Use .dump and .read to recreate the database from whatever data is readable
-        mv prisma/app.db prisma/app.db.corrupted
-        if sqlite3 prisma/app.db.corrupted .dump | sqlite3 prisma/app.db; then
+        mv "$DB_FILE" "$DB_FILE.corrupted"
+        if sqlite3 "$DB_FILE.corrupted" .dump | sqlite3 "$DB_FILE"; then
             echo "✅ Database repair attempt finished. Retrying update..."
             return 0
         else
             echo "❌ Database repair failed."
-            mv prisma/app.db.corrupted prisma/app.db
+            mv "$DB_FILE.corrupted" "$DB_FILE"
             return 1
         fi
     else
@@ -79,8 +92,10 @@ if ! npx prisma db push --accept-data-loss=false; then
     if [ "$REPAIR_FAILED" = true ]; then
         echo "This can happen if the database file was severely corrupted."
         echo "Resetting database automatically to fix corruption..."
-        rm -f prisma/app.db
-        rm -f prisma/app.db.corrupted
+        # Backup corrupted DB just in case
+        cp user_data/app.db user_data/app.db.bak.$(date +%s) || true
+        rm -f user_data/app.db
+        rm -f user_data/app.db.corrupted
         npx prisma db push
     fi
 fi

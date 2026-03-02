@@ -534,7 +534,11 @@ apiRouter.post('/admin/update/apply', authenticate, requireAdmin, async (req, re
     // Run the update script in the background using spawn to stream output
     // Using 'bash update.sh' avoids permission denied errors if the file loses its executable bit
     const child = spawn('bash', ['update.sh'], {
-      env: { ...process.env, DEBIAN_FRONTEND: 'noninteractive' }
+      env: { 
+        ...process.env, 
+        DEBIAN_FRONTEND: 'noninteractive',
+        DATABASE_URL: process.env.DATABASE_URL || `file:${DB_PATH}`
+      }
     });
 
     // Store child process reference for cancellation
