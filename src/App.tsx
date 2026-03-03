@@ -115,10 +115,27 @@ export default function App() {
           if (log.includes('[DONE]')) {
             eventSource?.close();
             if (log.includes('Exit code: 0')) {
-              setUpdateLogs(prev => [...prev, 'Update successful! The application will restart shortly.']);
-              setTimeout(() => {
-                window.location.reload();
-              }, 5000);
+              setUpdateLogs(prev => [...prev, 'Update successful! Waiting for server to restart...']);
+              
+              // Poll for health before reloading
+              const pollHealth = async () => {
+                try {
+                  const res = await fetch('/api/health');
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'ok' && !data.isUpdating) {
+                      setUpdateLogs(prev => [...prev, 'Server is back online! Reloading...']);
+                      setTimeout(() => window.location.reload(), 1000);
+                      return;
+                    }
+                  }
+                } catch (e) {
+                  // Ignore errors during restart
+                }
+                setTimeout(pollHealth, 2000);
+              };
+              
+              setTimeout(pollHealth, 5000); // Start polling after 5s
             } else {
               setUpdateLogs(prev => [...prev, 'Update failed or finished with errors.']);
               // Don't auto-close so user can see logs, but allow them to exit
