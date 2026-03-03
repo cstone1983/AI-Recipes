@@ -1014,12 +1014,32 @@ apiRouter.get('/recipes', authenticate, async (req: any, res) => {
 apiRouter.post('/recipes', authenticate, async (req: any, res) => {
   try {
     const { title, description, prepTime, cookTime, yield: recipeYield, instructions, imageUrl, visibility, category, ingredients } = req.body;
+    
+    const toInt = (val: any) => {
+      if (val === undefined || val === null || val === '') return null;
+      const parsed = parseInt(val.toString());
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    const toFloat = (val: any) => {
+      if (val === undefined || val === null || val === '') return null;
+      const parsed = parseFloat(val.toString());
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    const sanitizedIngredients = (ingredients || []).map((ing: any) => ({
+      name: ing.name,
+      amount: toFloat(ing.amount),
+      unit: ing.unit,
+      notes: ing.notes
+    })).filter((ing: any) => ing.name);
+
     const recipe = await prisma.recipe.create({
       data: {
         title,
         description,
-        prepTime,
-        cookTime,
+        prepTime: toInt(prepTime),
+        cookTime: toInt(cookTime),
         yield: recipeYield,
         instructions,
         imageUrl,
@@ -1027,13 +1047,14 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
         category,
         authorId: req.user.id,
         ingredients: {
-          create: ingredients || []
+          create: sanitizedIngredients
         }
       }
     });
     res.json({ success: true, recipe });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to save recipe', traceback: error.stack });
+    console.error('Save recipe error:', error);
+    res.status(500).json({ error: 'Failed to save recipe', message: error.message, traceback: error.stack });
   }
 });
 
@@ -1048,13 +1069,32 @@ apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
       return res.status(403).json({ error: 'Forbidden: You do not own this recipe' });
     }
 
+    const toInt = (val: any) => {
+      if (val === undefined || val === null || val === '') return null;
+      const parsed = parseInt(val.toString());
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    const toFloat = (val: any) => {
+      if (val === undefined || val === null || val === '') return null;
+      const parsed = parseFloat(val.toString());
+      return isNaN(parsed) ? null : parsed;
+    };
+
+    const sanitizedIngredients = (ingredients || []).map((ing: any) => ({
+      name: ing.name,
+      amount: toFloat(ing.amount),
+      unit: ing.unit,
+      notes: ing.notes
+    })).filter((ing: any) => ing.name);
+
     const recipe = await prisma.recipe.update({
       where: { id },
       data: {
         title,
         description,
-        prepTime,
-        cookTime,
+        prepTime: toInt(prepTime),
+        cookTime: toInt(cookTime),
         yield: recipeYield,
         instructions,
         imageUrl,
@@ -1063,13 +1103,14 @@ apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
         authorId: req.user.role === 'Admin' && authorId ? authorId : existing.authorId,
         ingredients: {
           deleteMany: {},
-          create: ingredients || []
+          create: sanitizedIngredients
         }
       }
     });
     res.json({ success: true, recipe });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to update recipe', traceback: error.stack });
+    console.error('Update recipe error:', error);
+    res.status(500).json({ error: 'Failed to update recipe', message: error.message, traceback: error.stack });
   }
 });
 
