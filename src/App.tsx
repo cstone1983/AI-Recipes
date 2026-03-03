@@ -26,6 +26,9 @@ export default function App() {
   const [activeRecipe, setActiveRecipe] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [potentialDuplicates, setPotentialDuplicates] = useState<any[]>([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
 
   // Cookbook State
   const [recipes, setRecipes] = useState<any[]>([]);
@@ -68,6 +71,8 @@ export default function App() {
   const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
   const [updateLogs, setUpdateLogs] = useState<string[]>([]);
   const [updateUrl, setUpdateUrl] = useState('');
+  const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
+  const [isScanningDuplicates, setIsScanningDuplicates] = useState(false);
 
   // Global check for system update status
   useEffect(() => {
@@ -741,8 +746,49 @@ export default function App() {
     }
   };
 
-  const handleSaveRecipe = async () => {
+  const checkSimilarity = (r1: any, r2: any) => {
+    if (!r1.title || !r2.title) return 0;
+    const t1 = r1.title.toLowerCase().trim();
+    const t2 = r2.title.toLowerCase().trim();
+    
+    if (t1 === t2) return 1.0;
+    
+    const words1 = t1.split(/\s+/).filter((w: string) => w.length > 2);
+    const words2 = t2.split(/\s+/).filter((w: string) => w.length > 2);
+    
+    if (words1.length === 0 || words2.length === 0) return 0;
+
+    const set1 = new Set(words1);
+    const set2 = new Set(words2);
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const titleScore = intersection.size / Math.max(set1.size, set2.size);
+    
+    if (titleScore > 0.8) return titleScore;
+
+    const ing1 = new Set(r1.ingredients?.map((i: any) => i.name?.toLowerCase().trim()).filter(Boolean) || []);
+    const ing2 = new Set(r2.ingredients?.map((i: any) => i.name?.toLowerCase().trim()).filter(Boolean) || []);
+    
+    if (ing1.size > 0 && ing2.size > 0) {
+      const ingIntersection = new Set([...ing1].filter(x => ing2.has(x)));
+      const ingScore = ingIntersection.size / Math.max(ing1.size, ing2.size);
+      return (titleScore * 0.3) + (ingScore * 0.7);
+    }
+
+    return titleScore;
+  };
+
+  const handleSaveRecipe = async (bypassDuplicateCheck = false) => {
     if (!activeRecipe) return;
+
+    if (!bypassDuplicateCheck && !activeRecipe.id) {
+      const dups = recipes.filter(r => checkSimilarity(activeRecipe, r) > 0.65);
+      if (dups.length > 0) {
+        setPotentialDuplicates(dups);
+        setShowDuplicateWarning(true);
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const method = activeRecipe.id ? 'PUT' : 'POST';
@@ -757,6 +803,7 @@ export default function App() {
       if (data.success) {
         setActiveRecipe(null);
         setIsEditing(false);
+        setShowDuplicateWarning(false);
         fetchRecipes();
         alert(activeRecipe.id ? 'Recipe updated successfully!' : 'Recipe saved successfully!');
       } else {
@@ -766,6 +813,51 @@ export default function App() {
       alert('Network error while saving.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleScanDuplicates = () => {
+    setIsScanningDuplicates(true);
+    const groups: any[] = [];
+    const processed = new Set();
+
+    for (let i = 0; i < recipes.length; i++) {
+      if (processed.has(recipes[i].id)) continue;
+      const group = [recipes[i]];
+      for (let j = i + 1; j < recipes.length; j++) {
+        if (processed.has(recipes[j].id)) continue;
+        if (checkSimilarity(recipes[i], recipes[j]) > 0.65) {
+          group.push(recipes[j]);
+          processed.add(recipes[j].id);
+        }
+      }
+      if (group.length > 1) {
+        groups.push(group);
+      }
+      processed.add(recipes[i].id);
+    }
+    setDuplicateGroups(groups);
+    setIsScanningDuplicates(false);
+  };
+
+  const handleMergeRecipes = async (targetId: string, sourceIds: string[]) => {
+    if (!confirm(`Are you sure you want to merge ${sourceIds.length} recipes into the target? Sources will be deleted.`)) return;
+    
+    try {
+      // In a real app, this would be a single atomic transaction on the server.
+      // Here we'll simulate it by deleting sources.
+      for (const id of sourceIds) {
+        await fetch(`/api/recipes/${id}`, {
+          method: 'DELETE',
+          headers: getHeaders()
+        });
+      }
+      
+      setDuplicateGroups(prev => prev.filter(g => !g.some((r: any) => r.id === targetId)));
+      fetchRecipes();
+      alert('Recipes merged successfully (sources deleted).');
+    } catch (err) {
+      alert('Error during merge.');
     }
   };
 
@@ -1768,6 +1860,57 @@ export default function App() {
               </div>
             )}
 
+            {/* DUPLICATE WARNING MODAL */}
+            {showDuplicateWarning && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
+                >
+                  <div className="p-6 border-b border-zinc-800 bg-amber-500/10 flex items-center gap-3">
+                    <ShieldAlert className="text-amber-500" size={24} />
+                    <div>
+                      <h2 className="text-xl font-serif text-amber-200">Potential Duplicates Found</h2>
+                      <p className="text-xs text-amber-500/80">We found recipes that look very similar to what you're saving.</p>
+                    </div>
+                  </div>
+                  <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+                    {potentialDuplicates.map(dup => (
+                      <div key={dup.id} className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl flex justify-between items-center group">
+                        <div>
+                          <h4 className="font-medium text-zinc-200">{dup.title}</h4>
+                          <p className="text-xs text-zinc-500">by {dup.author?.username || 'Unknown'} • {dup.category || 'No Category'}</p>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setViewingRecipe(dup);
+                          }}
+                          className="text-xs text-emerald-500 hover:underline"
+                        >
+                          View Recipe
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-6 bg-zinc-950 border-t border-zinc-800 flex justify-end gap-3">
+                    <button 
+                      onClick={() => setShowDuplicateWarning(false)}
+                      className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+                    >
+                      Cancel & Edit
+                    </button>
+                    <button 
+                      onClick={() => handleSaveRecipe(true)}
+                      className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-all"
+                    >
+                      Save Anyway
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
             {/* ADMIN VIEW */}
             {view === 'admin' && user?.role === 'Admin' && (
               <motion.div 
@@ -1828,6 +1971,79 @@ export default function App() {
                     >
                       {isSavingConfig ? 'Saving...' : 'Save Gemini Settings'}
                     </button>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+                  <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                    <h2 className="text-lg font-medium">Duplicate Management</h2>
+                    <button 
+                      onClick={handleScanDuplicates}
+                      disabled={isScanningDuplicates}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                      {isScanningDuplicates ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
+                      Scan for Duplicates
+                    </button>
+                  </div>
+                  
+                  <div className="p-6 space-y-6">
+                    {duplicateGroups.length === 0 ? (
+                      <div className="text-center py-8 text-zinc-500 italic">
+                        No duplicate groups found. Run a scan to check.
+                      </div>
+                    ) : (
+                      duplicateGroups.map((group, idx) => (
+                        <div key={idx} className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/30">
+                          <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex justify-between items-center">
+                            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Group #{idx + 1} ({group.length} recipes)</span>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => setDuplicateGroups(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-[10px] text-zinc-500 hover:text-zinc-300 uppercase tracking-tighter"
+                              >
+                                Ignore Group
+                              </button>
+                            </div>
+                          </div>
+                          <div className="divide-y divide-zinc-800">
+                            {group.map((recipe: any) => (
+                              <div key={recipe.id} className="p-4 flex justify-between items-center hover:bg-zinc-900/20 transition-colors">
+                                <div>
+                                  <h4 className="font-medium text-zinc-200">{recipe.title}</h4>
+                                  <p className="text-xs text-zinc-500">by {recipe.author?.username} • {recipe.category || 'No Category'}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => setViewingRecipe(recipe)}
+                                    className="p-2 text-zinc-500 hover:text-emerald-400 transition-colors"
+                                    title="View"
+                                  >
+                                    <BookOpen size={16} />
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      const sources = group.filter((r: any) => r.id !== recipe.id).map((r: any) => r.id);
+                                      handleMergeRecipes(recipe.id, sources);
+                                    }}
+                                    className="px-3 py-1 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 rounded text-xs hover:bg-emerald-600/20 transition-colors"
+                                  >
+                                    Merge Others Into This
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteRecipe(recipe.id)}
+                                    className="p-2 text-zinc-500 hover:text-red-400 transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
