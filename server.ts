@@ -14,7 +14,7 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
-import { Document, Packer, Paragraph, HeadingLevel, TextRun } from 'docx';
+import { Document, Packer, Paragraph, HeadingLevel, TextRun, Bookmark, InternalHyperlink, AlignmentType } from 'docx';
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
 
@@ -1144,67 +1144,121 @@ apiRouter.post('/recipes/export/cookbook', authenticate, async (req: any, res) =
       include: { ingredients: true }
     });
 
+    // Group recipes by category
+    const recipesByCategory: Record<string, any[]> = {};
+    recipes.forEach(r => {
+      const cat = r.category || 'Uncategorized';
+      if (!recipesByCategory[cat]) recipesByCategory[cat] = [];
+      recipesByCategory[cat].push(r);
+    });
+
     const docChildren: any[] = [];
     
-    recipes.forEach((recipe, index) => {
-      // Title with design-specific styling
-      docChildren.push(new Paragraph({ 
-        text: recipe.title, 
-        heading: HeadingLevel.HEADING_1,
-        spacing: { before: 400, after: 200 }
-      }));
+    // 1. Main Title
+    docChildren.push(new Paragraph({
+      text: `${req.user.username}'s Cookbook`,
+      heading: HeadingLevel.TITLE,
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 800 }
+    }));
 
-      if (recipe.description) {
-        docChildren.push(new Paragraph({ 
-          children: [new TextRun({ text: recipe.description, italics: design === 'modern' })],
-          spacing: { after: 200 }
-        }));
-      }
-      
-      const metaText = [];
-      if (recipe.prepTime) metaText.push(`Prep: ${recipe.prepTime}m`);
-      if (recipe.cookTime) metaText.push(`Cook: ${recipe.cookTime}m`);
-      if (recipe.yield) metaText.push(`Yield: ${recipe.yield}`);
-      if (recipe.category) metaText.push(`Category: ${recipe.category}`);
-      
-      if (metaText.length > 0) {
-        docChildren.push(new Paragraph({ 
-          children: [new TextRun({ text: metaText.join(' | '), bold: true })],
-          spacing: { after: 200 }
-        }));
-      }
-      
-      docChildren.push(new Paragraph({ 
-        text: 'Ingredients', 
+    // 2. Table of Contents
+    docChildren.push(new Paragraph({
+      text: 'Table of Contents',
+      heading: HeadingLevel.HEADING_1,
+      spacing: { before: 400, after: 200 }
+    }));
+
+    Object.keys(recipesByCategory).sort().forEach(cat => {
+      docChildren.push(new Paragraph({
+        text: cat,
         heading: HeadingLevel.HEADING_2,
         spacing: { before: 200, after: 100 }
       }));
 
-      recipe.ingredients.forEach(ing => {
-        let ingText = `${ing.amount || ''} ${ing.unit || ''} ${ing.name}`.trim();
-        if (ing.notes) ingText += ` (${ing.notes})`;
-        docChildren.push(new Paragraph({ 
-          text: `• ${ingText}`,
-          bullet: { level: 0 }
+      recipesByCategory[cat].sort((a, b) => a.title.localeCompare(b.title)).forEach(recipe => {
+        docChildren.push(new Paragraph({
+          children: [
+            new InternalHyperlink({
+              children: [new TextRun({ text: recipe.title, color: "0000FF", underline: {} })],
+              anchor: `recipe-${recipe.id}`,
+            }),
+          ],
+          indent: { left: 720 }, // Indent for TOC items
+          spacing: { after: 100 }
         }));
       });
-      
-      docChildren.push(new Paragraph({ 
-        text: 'Instructions', 
-        heading: HeadingLevel.HEADING_2,
-        spacing: { before: 200, after: 100 }
-      }));
-      
-      // Handle multi-line instructions
-      recipe.instructions.split('\n').forEach(line => {
-        if (line.trim()) {
-          docChildren.push(new Paragraph({ text: line.trim(), spacing: { after: 100 } }));
+    });
+
+    docChildren.push(new Paragraph({ text: '', pageBreakBefore: true }));
+
+    // 3. Recipes
+    Object.keys(recipesByCategory).sort().forEach(cat => {
+      recipesByCategory[cat].sort((a, b) => a.title.localeCompare(b.title)).forEach((recipe, index) => {
+        // Recipe Title with Bookmark
+        docChildren.push(new Paragraph({ 
+          children: [
+            new Bookmark({
+              id: `recipe-${recipe.id}`,
+              children: [new TextRun({ text: recipe.title })],
+            }),
+          ],
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 200 }
+        }));
+
+        if (recipe.description) {
+          docChildren.push(new Paragraph({ 
+            children: [new TextRun({ text: recipe.description, italics: design === 'modern' })],
+            spacing: { after: 200 }
+          }));
         }
-      });
-      
-      if (index < recipes.length - 1) {
+        
+        const metaText = [];
+        if (recipe.prepTime) metaText.push(`Prep: ${recipe.prepTime}m`);
+        if (recipe.cookTime) metaText.push(`Cook: ${recipe.cookTime}m`);
+        if (recipe.yield) metaText.push(`Yield: ${recipe.yield}`);
+        if (recipe.category) metaText.push(`Category: ${recipe.category}`);
+        
+        if (metaText.length > 0) {
+          docChildren.push(new Paragraph({ 
+            children: [new TextRun({ text: metaText.join(' | '), bold: true })],
+            spacing: { after: 200 }
+          }));
+        }
+        
+        docChildren.push(new Paragraph({ 
+          text: 'Ingredients', 
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 200, after: 100 }
+        }));
+
+        recipe.ingredients.forEach(ing => {
+          let ingText = `${ing.amount || ''} ${ing.unit || ''} ${ing.name}`.trim();
+          if (ing.notes) ingText += ` (${ing.notes})`;
+          docChildren.push(new Paragraph({ 
+            text: `• ${ingText}`,
+            bullet: { level: 0 }
+          }));
+        });
+        
+        docChildren.push(new Paragraph({ 
+          text: 'Instructions', 
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 200, after: 100 }
+        }));
+        
+        // Handle multi-line instructions step-by-step
+        const lines = recipe.instructions.split('\n').filter(l => l.trim());
+        lines.forEach((line, i) => {
+          const trimmed = line.trim();
+          // Check if it already starts with a number
+          const stepText = /^\d+[\.\)]/.test(trimmed) ? trimmed : `${i + 1}. ${trimmed}`;
+          docChildren.push(new Paragraph({ text: stepText, spacing: { after: 100 } }));
+        });
+        
         docChildren.push(new Paragraph({ text: '', pageBreakBefore: true }));
-      }
+      });
     });
 
     const doc = new Document({
@@ -1212,7 +1266,7 @@ apiRouter.post('/recipes/export/cookbook', authenticate, async (req: any, res) =
     });
 
     const buffer = await Packer.toBuffer(doc);
-    res.setHeader('Content-Disposition', 'attachment; filename=Cookbook.docx');
+    res.setHeader('Content-Disposition', `attachment; filename=${req.user.username}_Cookbook.docx`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.send(buffer);
   } catch (error: any) {

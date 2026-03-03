@@ -244,7 +244,7 @@ export default function App() {
   }, [token]);
 
   useEffect(() => {
-    if (view === 'cookbook' && user) {
+    if ((view === 'cookbook' || view === 'importer') && user) {
       fetchRecipes();
     } else if (view === 'admin' && user?.role === 'Admin') {
       fetchConfig();
@@ -1235,13 +1235,26 @@ export default function App() {
                         <div className="col-span-2 md:col-span-1">
                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Category</label>
                           <div className="flex gap-2">
-                            <input 
-                              type="text" 
-                              placeholder="e.g. Dessert, Main Course, Breakfast"
+                            <select 
                               value={activeRecipe.category || ''}
-                              onChange={e => setActiveRecipe({...activeRecipe, category: e.target.value})}
+                              onChange={e => {
+                                if (e.target.value === 'ADD_NEW') {
+                                  const newCat = prompt('Enter new category:');
+                                  if (newCat) {
+                                    setActiveRecipe({...activeRecipe, category: newCat});
+                                  }
+                                } else {
+                                  setActiveRecipe({...activeRecipe, category: e.target.value});
+                                }
+                              }}
                               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-lg font-serif focus:outline-none focus:border-emerald-500"
-                            />
+                            >
+                              <option value="">Select Category</option>
+                              {Array.from(new Set(recipes.map(r => r.category).filter(Boolean))).sort().map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                              <option value="ADD_NEW" className="text-emerald-400 font-bold">+ Add New Category...</option>
+                            </select>
                             <button 
                               onClick={handleSuggestCategory}
                               disabled={isImporting || !activeRecipe.title}
@@ -1595,8 +1608,22 @@ export default function App() {
                       </div>
                       <div className="md:col-span-2 space-y-4">
                         <h3 className="text-lg font-serif border-b border-zinc-800 pb-2">Instructions</h3>
-                        <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                          {viewingRecipe.instructions}
+                        <div className="space-y-4">
+                          {viewingRecipe.instructions.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => {
+                            const trimmed = line.trim();
+                            // Strip existing numbers if present to use our own consistent styling
+                            const cleanText = trimmed.replace(/^\d+[\.\)]\s*/, '');
+                            return (
+                              <div key={i} className="flex gap-4 items-start">
+                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-bold flex items-center justify-center border border-zinc-700">
+                                  {i + 1}
+                                </span>
+                                <p className="text-sm text-zinc-300 leading-relaxed pt-0.5">
+                                  {cleanText}
+                                </p>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
