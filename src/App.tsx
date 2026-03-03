@@ -73,6 +73,7 @@ export default function App() {
   const [updateUrl, setUpdateUrl] = useState('');
   const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
   const [isScanningDuplicates, setIsScanningDuplicates] = useState(false);
+  const [hasScannedDuplicates, setHasScannedDuplicates] = useState(false);
 
   // Global check for system update status
   useEffect(() => {
@@ -781,7 +782,7 @@ export default function App() {
     if (!activeRecipe) return;
 
     if (!bypassDuplicateCheck && !activeRecipe.id) {
-      const dups = recipes.filter(r => checkSimilarity(activeRecipe, r) > 0.65);
+      const dups = recipes.filter(r => checkSimilarity(activeRecipe, r) > 0.55);
       if (dups.length > 0) {
         setPotentialDuplicates(dups);
         setShowDuplicateWarning(true);
@@ -818,26 +819,32 @@ export default function App() {
 
   const handleScanDuplicates = () => {
     setIsScanningDuplicates(true);
-    const groups: any[] = [];
-    const processed = new Set();
+    setHasScannedDuplicates(false);
+    
+    // Slight delay to ensure loading state is visible and UI doesn't freeze instantly
+    setTimeout(() => {
+      const groups: any[] = [];
+      const processed = new Set();
 
-    for (let i = 0; i < recipes.length; i++) {
-      if (processed.has(recipes[i].id)) continue;
-      const group = [recipes[i]];
-      for (let j = i + 1; j < recipes.length; j++) {
-        if (processed.has(recipes[j].id)) continue;
-        if (checkSimilarity(recipes[i], recipes[j]) > 0.65) {
-          group.push(recipes[j]);
-          processed.add(recipes[j].id);
+      for (let i = 0; i < recipes.length; i++) {
+        if (processed.has(recipes[i].id)) continue;
+        const group = [recipes[i]];
+        for (let j = i + 1; j < recipes.length; j++) {
+          if (processed.has(recipes[j].id)) continue;
+          if (checkSimilarity(recipes[i], recipes[j]) > 0.55) {
+            group.push(recipes[j]);
+            processed.add(recipes[j].id);
+          }
         }
+        if (group.length > 1) {
+          groups.push(group);
+        }
+        processed.add(recipes[i].id);
       }
-      if (group.length > 1) {
-        groups.push(group);
-      }
-      processed.add(recipes[i].id);
-    }
-    setDuplicateGroups(groups);
-    setIsScanningDuplicates(false);
+      setDuplicateGroups(groups);
+      setIsScanningDuplicates(false);
+      setHasScannedDuplicates(true);
+    }, 600);
   };
 
   const handleMergeRecipes = async (targetId: string, sourceIds: string[]) => {
@@ -1989,8 +1996,22 @@ export default function App() {
                   
                   <div className="p-6 space-y-6">
                     {duplicateGroups.length === 0 ? (
-                      <div className="text-center py-8 text-zinc-500 italic">
-                        No duplicate groups found. Run a scan to check.
+                      <div className="text-center py-12 space-y-4">
+                        <div className="w-12 h-12 bg-zinc-800 rounded-full flex items-center justify-center mx-auto text-zinc-500">
+                          {hasScannedDuplicates ? <Check size={24} className="text-emerald-500" /> : <Search size={24} />}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-zinc-400 font-medium">
+                            {hasScannedDuplicates 
+                              ? "Scan Complete: No Duplicates Found" 
+                              : "Duplicate Scan Ready"}
+                          </p>
+                          <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+                            {hasScannedDuplicates 
+                              ? `We analyzed all ${recipes.length} recipes and found no significant similarities.` 
+                              : "Click the scan button above to analyze your cookbook for potential duplicates."}
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       duplicateGroups.map((group, idx) => (
