@@ -1670,6 +1670,20 @@ export default function App() {
                   <div className="sticky top-0 bg-zinc-900/90 backdrop-blur border-b border-zinc-800 p-4 flex items-center justify-between z-10">
                     <h2 className="text-xl font-serif">{viewingRecipe.title}</h2>
                     <div className="flex items-center gap-2">
+                      {(viewingRecipe.authorId === user?.id || user?.role === 'Admin') && (
+                        <button 
+                          onClick={() => {
+                            setActiveRecipe(viewingRecipe);
+                            setIsEditing(true);
+                            setView('importer');
+                            setViewingRecipe(null);
+                          }}
+                          className="flex items-center gap-2 text-sm bg-zinc-800 text-zinc-300 border border-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-700 transition-colors"
+                        >
+                          <Edit2 size={14} />
+                          Edit
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleSearchSimilar(viewingRecipe.id)}
                         disabled={isSearchingSimilar}
