@@ -1040,7 +1040,7 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
 apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const { title, description, prepTime, cookTime, yield: recipeYield, instructions, imageUrl, visibility, category, ingredients } = req.body;
+    const { title, description, prepTime, cookTime, yield: recipeYield, instructions, imageUrl, visibility, category, ingredients, authorId } = req.body;
     
     const existing = await prisma.recipe.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Recipe not found' });
@@ -1060,6 +1060,7 @@ apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
         imageUrl,
         visibility,
         category,
+        authorId: req.user.role === 'Admin' && authorId ? authorId : existing.authorId,
         ingredients: {
           deleteMany: {},
           create: ingredients || []

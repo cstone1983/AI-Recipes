@@ -237,7 +237,7 @@ export default function App() {
           if (data.isAiConfigured !== undefined) {
             setIsAiConfigured(data.isAiConfigured);
           }
-          setView('importer');
+          setView('cookbook');
         }
       })
       .catch(() => {});
@@ -247,8 +247,12 @@ export default function App() {
     if (view === 'cookbook' && user) {
       fetchRecipes();
     } else if (view === 'admin' && user?.role === 'Admin') {
-      fetchUsers();
       fetchConfig();
+    }
+    
+    // Always fetch users if admin, so we can use it in the recipe editor
+    if (user?.role === 'Admin') {
+      fetchUsers();
     }
   }, [view, user, recipeOwnershipFilter]);
 
@@ -346,15 +350,22 @@ export default function App() {
         headers: getHeaders(),
         body: JSON.stringify({ version: updateInfo.latestVersion })
       });
-      const data = await res.json();
       
-      if (!data.success) {
-        alert('Failed to start update: ' + data.error);
-        setIsApplyingUpdate(false);
+      // The server might close the connection immediately after sending the response
+      // or even before if the process exits too quickly, so we handle both cases.
+      try {
+        const data = await res.json();
+        if (!data.success) {
+          alert('Failed to start update: ' + data.error);
+          setIsApplyingUpdate(false);
+        }
+      } catch (jsonError) {
+        // If we can't parse JSON, assume the server restarted successfully
+        console.log('Server likely restarted before sending full response.');
       }
     } catch (e) {
-      alert('Failed to apply update');
-      setIsApplyingUpdate(false);
+      // Network errors are expected here because the server is restarting
+      console.log('Network error during update (expected):', e);
     }
   };
 
@@ -404,7 +415,7 @@ export default function App() {
             setIsAiConfigured(data.isAiConfigured);
           }
           setUser(data.user);
-          setView('importer');
+          setView('cookbook');
         } else {
           setAuthError(data.error || 'Authentication failed');
         }
@@ -1241,6 +1252,20 @@ export default function App() {
                             </button>
                           </div>
                         </div>
+                        {user?.role === 'Admin' && (
+                          <div className="col-span-2">
+                            <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Recipe Owner (Admin Only)</label>
+                            <select
+                              value={activeRecipe.authorId || user.id}
+                              onChange={e => setActiveRecipe({...activeRecipe, authorId: e.target.value})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                            >
+                              {users.map(u => (
+                                <option key={u.id} value={u.id}>{u.username} ({u.email})</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-3 gap-4">
