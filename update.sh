@@ -19,14 +19,14 @@ git stash || true
 # 2. Pull latest changes
 echo "[2/6] Pulling latest changes from main..."
 # Ensure we have a remote named origin
-# if ! git remote | grep -q "origin"; then
-#   echo "Warning: No 'origin' remote found. Attempting to add it..."
-#   git remote add origin https://github.com/cstone1983/AI-Recipes.git || true
-# fi
+if ! git remote | grep -q "origin"; then
+  echo "Warning: No 'origin' remote found. Attempting to add it..."
+  git remote add origin https://github.com/cstone1983/AI-Recipes.git || true
+fi
 
-# git fetch --all
-# git reset --hard origin/main
-echo "Skipping git pull to preserve local fixes..."
+git fetch --all
+git reset --hard origin/main
+echo "Git pull complete."
 
 # 3. Reinstall dependencies
 echo "[3/6] Reinstalling dependencies..."
