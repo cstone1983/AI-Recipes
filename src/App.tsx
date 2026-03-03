@@ -1538,6 +1538,7 @@ export default function App() {
                       className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
                     >
                       <option value="all">All Categories</option>
+                      <option value="none">No Category</option>
                       {Array.from(new Set(recipes.map(r => r.category).filter(Boolean))).map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
@@ -1572,7 +1573,11 @@ export default function App() {
 
                 <div className={recipeViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
                   {recipes
-                    .filter(r => recipeFilter === 'all' || r.category === recipeFilter)
+                    .filter(r => {
+                      if (recipeFilter === 'all') return true;
+                      if (recipeFilter === 'none') return !r.category;
+                      return r.category === recipeFilter;
+                    })
                     .filter(r => {
                       if (!searchQuery) return true;
                       const query = searchQuery.toLowerCase();
