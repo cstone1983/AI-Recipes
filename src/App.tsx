@@ -1468,7 +1468,12 @@ export default function App() {
                       <div className={`flex-1 ${recipeViewMode === 'grid' ? 'mb-4' : ''}`}>
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <h3 className="font-serif text-lg leading-tight mb-1">{recipe.title}</h3>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setViewingRecipe(recipe); }}
+                              className="text-left group"
+                            >
+                              <h3 className="font-serif text-lg leading-tight mb-1 group-hover:text-emerald-400 transition-colors">{recipe.title}</h3>
+                            </button>
                             <p className="text-[10px] text-zinc-500 italic">by {recipe.author?.username || 'Unknown'}</p>
                           </div>
                           {recipe.category && <span className="text-[10px] uppercase tracking-wider bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full whitespace-nowrap">{recipe.category}</span>}
@@ -1481,12 +1486,6 @@ export default function App() {
                       
                       <div className={`flex items-center gap-3 ${recipeViewMode === 'grid' ? 'w-full justify-between mt-auto pt-4 border-t border-zinc-800/50' : ''}`}>
                         <div className="flex items-center gap-2">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setViewingRecipe(recipe); }}
-                            className="text-sm text-zinc-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
-                          >
-                            <FileText size={14} /> View
-                          </button>
                           {(recipe.authorId === user?.id || user?.role === 'Admin') && (
                             <>
                               <button 
