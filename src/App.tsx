@@ -1444,8 +1444,28 @@ export default function App() {
                                   className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
                                   placeholder="Ingredient name"
                                 />
+                                <button 
+                                  onClick={() => {
+                                    const newIngs = activeRecipe.ingredients.filter((_: any, i: number) => i !== idx);
+                                    setActiveRecipe({...activeRecipe, ingredients: newIngs});
+                                  }}
+                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                                  title="Remove ingredient"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
                             ))}
+                            <button 
+                              onClick={() => {
+                                const newIngs = [...(activeRecipe.ingredients || []), { name: '', amount: '', unit: '', notes: '' }];
+                                setActiveRecipe({...activeRecipe, ingredients: newIngs});
+                              }}
+                              className="w-full py-2 border border-dashed border-zinc-800 rounded-lg text-zinc-500 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all text-xs font-medium flex items-center justify-center gap-2"
+                            >
+                              <Plus size={14} />
+                              Add Ingredient
+                            </button>
                           </div>
                         </div>
                         
