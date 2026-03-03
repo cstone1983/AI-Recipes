@@ -1238,8 +1238,26 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.use(express.static(path.resolve(__dirname, 'dist'), {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      }
+    }));
+    
     app.get('*', (req, res) => {
+      // Don't serve index.html for missing static assets or API routes
+      // This prevents the "Unexpected token '<'" error in the browser
+      if (req.path.startsWith('/assets/') || req.path.match(/\.[a-zA-Z0-9]+$/)) {
+        return res.status(404).send('Not found');
+      }
+
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   }
