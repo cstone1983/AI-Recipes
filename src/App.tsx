@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChefHat, Search, Plus, Settings, Link as LinkIcon, FileText, Image as ImageIcon, Loader2, Clock, Users, BookOpen, Download, Upload, FileJson, Printer, ShieldAlert, LogOut, User as UserIcon, Check, X, Edit2, Trash2, Globe, Sparkles, RefreshCw, Layers, Layout, Palette, Wand2 } from 'lucide-react';
+import { ChefHat, Search, Plus, Settings, Link as LinkIcon, FileText, Image as ImageIcon, Loader2, Clock, Users, BookOpen, Download, Upload, FileJson, Printer, ShieldAlert, LogOut, User as UserIcon, Check, X, Edit2, Trash2, Globe, Sparkles, RefreshCw, Layers, Layout, Palette, Wand2, Zap } from 'lucide-react';
 
 type ImportType = 'url' | 'text' | 'image';
 type ViewState = 'login' | 'importer' | 'settings' | 'cookbook' | 'admin';
@@ -659,6 +659,24 @@ export default function App() {
     }
   };
 
+  const handleStartManualEntry = () => {
+    setActiveRecipe({
+      title: '',
+      description: '',
+      prepTime: 0,
+      cookTime: 0,
+      yield: '',
+      ingredients: [{ name: '', amount: '', unit: '', notes: '' }],
+      instructions: '',
+      category: '',
+      imageUrl: '',
+      visibility: 'Private'
+    });
+    setIsEditing(false);
+    setView('importer');
+    setIsMobileMenuOpen(false);
+  };
+
   const handleCancelUpdate = async () => {
     try {
       const res = await fetch('/api/admin/update/cancel', {
@@ -952,8 +970,21 @@ export default function App() {
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-2 overflow-y-auto overflow-x-hidden">
+          <button
+            onClick={handleStartManualEntry}
+            className={`
+              w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative
+              bg-emerald-600 text-white font-medium hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 mb-4
+              ${isSidebarCollapsed ? 'justify-center' : ''}
+            `}
+            title={isSidebarCollapsed ? "Manual Entry" : ""}
+          >
+            <Plus size={20} className="shrink-0" />
+            {!isSidebarCollapsed && <span className="truncate">New Recipe</span>}
+          </button>
+
           {[
-            { id: 'importer', icon: Plus, label: 'Import' },
+            { id: 'importer', icon: Zap, label: 'AI Importer' },
             { id: 'cookbook', icon: BookOpen, label: 'Cookbook' },
             { id: 'settings', icon: Settings, label: 'Settings' },
             { id: 'admin', icon: ShieldAlert, label: 'Admin', adminOnly: true },
@@ -1045,10 +1076,20 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
-                <div>
-                  <h1 className="text-3xl font-serif tracking-tight mb-2">Universal Importer</h1>
-                  <p className="text-zinc-400 text-sm">Extract recipes from any source using AI.</p>
-                  {!isAiConfigured && (
+                <div className="flex justify-between items-end">
+                  <div>
+                    <h1 className="text-3xl font-serif tracking-tight mb-2">Universal Importer</h1>
+                    <p className="text-zinc-400 text-sm">Extract recipes from any source using AI.</p>
+                  </div>
+                  <button 
+                    onClick={handleStartManualEntry}
+                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 border border-zinc-700"
+                  >
+                    <Plus size={18} />
+                    Manual Entry
+                  </button>
+                </div>
+                {!isAiConfigured && (
                     <div className="mt-4 p-4 bg-amber-900/20 border border-amber-900/50 rounded-xl flex items-start gap-3">
                       <ShieldAlert className="text-amber-500 shrink-0" size={20} />
                       <div>
@@ -1057,7 +1098,6 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                </div>
 
                 {!activeRecipe ? (
                   <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
@@ -1198,7 +1238,7 @@ export default function App() {
               ) : (
                   <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                     <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-950/50">
-                      <h2 className="text-xl font-serif">{activeRecipe.id ? 'Edit Recipe' : 'Review Recipe'}</h2>
+                      <h2 className="text-xl font-serif">{activeRecipe.id ? 'Edit Recipe' : (activeRecipe.title === '' && activeRecipe.instructions === '' ? 'New Recipe' : 'Review Recipe')}</h2>
                       <div className="flex gap-3">
                         <button 
                           onClick={() => { setActiveRecipe(null); setIsEditing(false); }}
