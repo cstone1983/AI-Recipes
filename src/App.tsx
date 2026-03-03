@@ -35,6 +35,7 @@ export default function App() {
   const [recipeViewMode, setRecipeViewMode] = useState<'list' | 'grid'>('grid');
   const [recipeSort, setRecipeSort] = useState<'newest' | 'oldest' | 'alpha'>('newest');
   const [recipeFilter, setRecipeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [recipeOwnershipFilter, setRecipeOwnershipFilter] = useState<'mine' | 'all'>('mine');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -1324,15 +1325,25 @@ export default function App() {
                 className="space-y-8"
               >
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-zinc-900 pb-6 gap-4">
-                  <div>
+                  <div className="flex-1 w-full max-w-2xl">
                     <h1 className="text-3xl font-serif tracking-tight mb-2">
                       {recipeOwnershipFilter === 'mine' ? 'My Cookbook' : 'Global Cookbook'}
                     </h1>
-                    <p className="text-zinc-400 text-sm">
+                    <p className="text-zinc-400 text-sm mb-6">
                       {recipeOwnershipFilter === 'mine' 
                         ? 'Manage and export your personal recipe collection.' 
                         : 'Discover and export recipes from the entire community.'}
                     </p>
+                    <div className="relative w-full">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="Search recipes, ingredients, or authors..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 transition-all"
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
                     <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
@@ -1390,6 +1401,17 @@ export default function App() {
                 <div className={recipeViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
                   {recipes
                     .filter(r => recipeFilter === 'all' || r.category === recipeFilter)
+                    .filter(r => {
+                      if (!searchQuery) return true;
+                      const query = searchQuery.toLowerCase();
+                      const inTitle = r.title.toLowerCase().includes(query);
+                      const inAuthor = r.author?.username?.toLowerCase().includes(query);
+                      const inIngredients = r.ingredients?.some((ing: any) => 
+                        ing.name.toLowerCase().includes(query) || 
+                        (ing.notes && ing.notes.toLowerCase().includes(query))
+                      );
+                      return inTitle || inAuthor || inIngredients;
+                    })
                     .sort((a, b) => {
                       if (recipeSort === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                       if (recipeSort === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -1405,9 +1427,7 @@ export default function App() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <h3 className="font-serif text-lg leading-tight mb-1">{recipe.title}</h3>
-                            {recipeOwnershipFilter === 'all' && (
-                              <p className="text-[10px] text-zinc-500 italic">by {recipe.author?.username || 'Unknown'}</p>
-                            )}
+                            <p className="text-[10px] text-zinc-500 italic">by {recipe.author?.username || 'Unknown'}</p>
                           </div>
                           {recipe.category && <span className="text-[10px] uppercase tracking-wider bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full whitespace-nowrap">{recipe.category}</span>}
                         </div>
