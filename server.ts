@@ -710,17 +710,24 @@ apiRouter.post('/recipes/suggest-image', authenticate, async (req, res) => {
 
 apiRouter.post('/recipes/suggest-category', authenticate, async (req, res) => {
   try {
-    const { title, description, ingredients } = req.body;
+    const { title, description, ingredients, existingCategories = [] } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
     if (!ai) return res.status(500).json({ error: 'AI not configured' });
 
-    const prompt = `Suggest a single category for this recipe:
+    const categoriesList = existingCategories.length > 0 
+      ? existingCategories.join(', ') 
+      : 'Breakfast, Lunch, Dinner, Dessert, Snack, Drink, Appetizer, Salad, Soup, Side Dish, Baked Goods';
+
+    const prompt = `Suggest a single category for this recipe. 
+    You can choose from the existing categories if they fit, or suggest a new one if none of them are appropriate.
+    
+    Existing categories: ${categoriesList}
+    
+    Recipe Details:
     Title: ${title}
     Description: ${description || ''}
     Ingredients: ${JSON.stringify(ingredients || [])}
     
-    Choose from: Breakfast, Lunch, Dinner, Dessert, Snack, Drink, Appetizer, Salad, Soup, Side Dish, Baked Goods.
-    If none fit perfectly, choose the closest one or a standard culinary category.
     Return JSON: { "category": "CategoryName" }`;
 
     const response = await ai.models.generateContent({
@@ -742,6 +749,66 @@ apiRouter.post('/recipes/suggest-category', authenticate, async (req, res) => {
   } catch (error: any) {
     console.error('Category suggestion error:', error);
     res.status(500).json({ error: 'Failed to suggest category' });
+  }
+});
+
+apiRouter.get('/admin/categories', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const recipes = await prisma.recipe.findMany({
+      select: { category: true }
+    });
+    const categories = Array.from(new Set(recipes.map(r => r.category).filter(Boolean))).sort();
+    const stats = categories.map(cat => ({
+      name: cat,
+      count: recipes.filter(r => r.category === cat).length
+    }));
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+apiRouter.post('/admin/categories/rename', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { oldName, newName } = req.body;
+    if (!oldName || !newName) return res.status(400).json({ error: 'Both old and new names are required' });
+
+    await prisma.recipe.updateMany({
+      where: { category: oldName },
+      data: { category: newName }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to rename category' });
+  }
+});
+
+apiRouter.post('/admin/categories/delete', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Category name is required' });
+
+    await prisma.recipe.updateMany({
+      where: { category: name },
+      data: { category: null }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+apiRouter.post('/admin/categories/add', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Category name is required' });
+    // Since categories are just strings on recipes, "adding" one doesn't do much 
+    // unless we have a recipe to attach it to, but we can return success.
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to add category' });
   }
 });
 

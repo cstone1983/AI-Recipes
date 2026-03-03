@@ -59,6 +59,8 @@ export default function App() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState('User');
   const [adminUserMessage, setAdminUserMessage] = useState('');
+  const [adminCategories, setAdminCategories] = useState<any[]>([]);
+  const [isSuggestingCategory, setIsSuggestingCategory] = useState(false);
   const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null);
   const [adminNewPassword, setAdminNewPassword] = useState('');
   const [updateInfo, setUpdateInfo] = useState<any>(null);
@@ -248,6 +250,7 @@ export default function App() {
       fetchRecipes();
     } else if (view === 'admin' && user?.role === 'Admin') {
       fetchConfig();
+      fetchAdminCategories();
     }
     
     // Always fetch users if admin, so we can use it in the recipe editor
@@ -286,6 +289,51 @@ export default function App() {
       if (Array.isArray(data)) setUsers(data);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchAdminCategories = async () => {
+    try {
+      const res = await fetch('/api/admin/categories', { headers: getHeaders() });
+      const data = await res.json();
+      if (Array.isArray(data)) setAdminCategories(data);
+    } catch (err) {}
+  };
+
+  const handleRenameCategory = async (oldName: string) => {
+    const newName = prompt(`Rename category "${oldName}" to:`, oldName);
+    if (!newName || newName === oldName) return;
+
+    try {
+      const res = await fetch('/api/admin/categories/rename', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ oldName, newName })
+      });
+      if (res.ok) {
+        fetchAdminCategories();
+        fetchRecipes();
+      }
+    } catch (err) {
+      alert('Failed to rename category');
+    }
+  };
+
+  const handleDeleteCategory = async (name: string) => {
+    if (!confirm(`Are you sure you want to remove the category "${name}" from all recipes? This will not delete the recipes themselves.`)) return;
+
+    try {
+      const res = await fetch('/api/admin/categories/delete', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) {
+        fetchAdminCategories();
+        fetchRecipes();
+      }
+    } catch (err) {
+      alert('Failed to delete category');
     }
   };
 
@@ -586,15 +634,17 @@ export default function App() {
   const handleSuggestCategory = async () => {
     if (!activeRecipe.title) return alert('Please enter a title first');
     setExtractionStatus('Suggesting category...');
-    setIsImporting(true);
+    setIsSuggestingCategory(true);
     try {
+      const existingCategories = Array.from(new Set(recipes.map(r => r.category).filter(Boolean)));
       const res = await fetch('/api/recipes/suggest-category', {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ 
           title: activeRecipe.title,
           description: activeRecipe.description,
-          ingredients: activeRecipe.ingredients 
+          ingredients: activeRecipe.ingredients,
+          existingCategories
         })
       });
       const data = await res.json();
@@ -604,7 +654,7 @@ export default function App() {
     } catch (e) {
       alert('Failed to suggest category');
     } finally {
-      setIsImporting(false);
+      setIsSuggestingCategory(false);
       setExtractionStatus('');
     }
   };
@@ -1257,11 +1307,15 @@ export default function App() {
                             </select>
                             <button 
                               onClick={handleSuggestCategory}
-                              disabled={isImporting || !activeRecipe.title}
-                              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1"
+                              disabled={isSuggestingCategory || !activeRecipe.title}
+                              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1 min-w-[70px] justify-center"
                               title="Suggest Category with AI"
                             >
-                              <Sparkles size={14} /> Auto
+                              {isSuggestingCategory ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <><Sparkles size={14} /> Auto</>
+                              )}
                             </button>
                           </div>
                         </div>
@@ -1789,6 +1843,55 @@ export default function App() {
                             )}
                           </React.Fragment>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+                  <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                    <h2 className="text-lg font-medium">Category Management</h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-zinc-950/50 text-zinc-400">
+                        <tr>
+                          <th className="px-6 py-3 font-medium">Category Name</th>
+                          <th className="px-6 py-3 font-medium">Recipe Count</th>
+                          <th className="px-6 py-3 font-medium text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800">
+                        {adminCategories.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="px-6 py-8 text-center text-zinc-500 italic">No categories found.</td>
+                          </tr>
+                        ) : (
+                          adminCategories.map(cat => (
+                            <tr key={cat.name} className="hover:bg-zinc-900/50 transition-colors">
+                              <td className="px-6 py-4 font-medium text-zinc-200">{cat.name}</td>
+                              <td className="px-6 py-4 text-zinc-400">{cat.count} recipes</td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <button 
+                                    onClick={() => handleRenameCategory(cat.name)}
+                                    className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                                    title="Rename Category"
+                                  >
+                                    <Edit2 size={16} />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteCategory(cat.name)}
+                                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    title="Remove Category from all recipes"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
