@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChefHat, Search, Plus, Settings, Link as LinkIcon, FileText, Image as ImageIcon, Loader2, Clock, Users, BookOpen, Download, Upload, FileJson, Printer, ShieldAlert, LogOut, User as UserIcon, Check, X, Edit2, Trash2, Globe, Sparkles, RefreshCw, Layers, Layout, Palette, Wand2, Zap } from 'lucide-react';
 
-type ImportType = 'url' | 'text' | 'image';
+type ImportType = 'url' | 'text' | 'image' | 'manual';
 type ViewState = 'login' | 'importer' | 'settings' | 'cookbook' | 'admin';
 
 export default function App() {
@@ -970,21 +970,8 @@ export default function App() {
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-2 overflow-y-auto overflow-x-hidden">
-          <button
-            onClick={handleStartManualEntry}
-            className={`
-              w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative
-              bg-emerald-600 text-white font-medium hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 mb-4
-              ${isSidebarCollapsed ? 'justify-center' : ''}
-            `}
-            title={isSidebarCollapsed ? "Manual Entry" : ""}
-          >
-            <Plus size={20} className="shrink-0" />
-            {!isSidebarCollapsed && <span className="truncate">New Recipe</span>}
-          </button>
-
           {[
-            { id: 'importer', icon: Zap, label: 'AI Importer' },
+            { id: 'importer', icon: Zap, label: 'Recipe Importer' },
             { id: 'cookbook', icon: BookOpen, label: 'Cookbook' },
             { id: 'settings', icon: Settings, label: 'Settings' },
             { id: 'admin', icon: ShieldAlert, label: 'Admin', adminOnly: true },
@@ -1078,16 +1065,9 @@ export default function App() {
               >
                 <div className="flex justify-between items-end">
                   <div>
-                    <h1 className="text-3xl font-serif tracking-tight mb-2">Universal Importer</h1>
-                    <p className="text-zinc-400 text-sm">Extract recipes from any source using AI.</p>
+                    <h1 className="text-3xl font-serif tracking-tight mb-2">Recipe Importer</h1>
+                    <p className="text-zinc-400 text-sm">Add recipes from any source or enter them manually.</p>
                   </div>
-                  <button 
-                    onClick={handleStartManualEntry}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 border border-zinc-700"
-                  >
-                    <Plus size={18} />
-                    Manual Entry
-                  </button>
                 </div>
                 {!isAiConfigured && (
                     <div className="mt-4 p-4 bg-amber-900/20 border border-amber-900/50 rounded-xl flex items-start gap-3">
@@ -1123,7 +1103,7 @@ export default function App() {
                     ) : (
                       <>
                         <div className="flex gap-2 mb-6">
-                      {(['url', 'text', 'image'] as ImportType[]).map(type => (
+                      {(['url', 'text', 'image', 'manual'] as ImportType[]).map(type => (
                         <button
                           key={type}
                           onClick={() => {
@@ -1135,6 +1115,7 @@ export default function App() {
                           {type === 'url' && <LinkIcon size={16} />}
                           {type === 'text' && <FileText size={16} />}
                           {type === 'image' && <ImageIcon size={16} />}
+                          {type === 'manual' && <Edit2 size={16} />}
                           {type}
                         </button>
                       ))}
@@ -1203,35 +1184,57 @@ export default function App() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-3 pt-2">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                          <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${useWebSearch ? 'bg-emerald-600 border-emerald-600' : 'border-zinc-700 group-hover:border-zinc-500'}`}>
-                            {useWebSearch && <Check size={14} className="text-white" />}
+                      {importType !== 'manual' && (
+                        <>
+                          <div className="flex items-center gap-3 pt-2">
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${useWebSearch ? 'bg-emerald-600 border-emerald-600' : 'border-zinc-700 group-hover:border-zinc-500'}`}>
+                                {useWebSearch && <Check size={14} className="text-white" />}
+                              </div>
+                              <input 
+                                type="checkbox" 
+                                className="hidden" 
+                                checked={useWebSearch} 
+                                onChange={e => setUseWebSearch(e.target.checked)} 
+                              />
+                              <span className="text-sm text-zinc-400 group-hover:text-zinc-300 flex items-center gap-1.5">
+                                <Globe size={14} />
+                                Use AI Web Search to enrich missing details & find cover photo
+                              </span>
+                            </label>
                           </div>
-                          <input 
-                            type="checkbox" 
-                            className="hidden" 
-                            checked={useWebSearch} 
-                            onChange={e => setUseWebSearch(e.target.checked)} 
-                          />
-                          <span className="text-sm text-zinc-400 group-hover:text-zinc-300 flex items-center gap-1.5">
-                            <Globe size={14} />
-                            Use AI Web Search to enrich missing details & find cover photo
-                          </span>
-                        </label>
-                      </div>
 
-                      <div className="flex justify-end pt-4">
-                        <button 
-                          onClick={handleImport}
-                          disabled={isImporting || !importInput}
-                          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2"
-                        >
-                          {isImporting ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
-                          {isImporting ? 'Extracting...' : 'Extract Recipe'}
-                        </button>
+                          <div className="flex justify-end pt-4">
+                            <button 
+                              onClick={handleImport}
+                              disabled={isImporting || !importInput}
+                              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2"
+                            >
+                              {isImporting ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
+                              {isImporting ? 'Extracting...' : 'Extract Recipe'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {importType === 'manual' && (
+                        <div className="py-8 text-center space-y-6">
+                          <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto">
+                            <Plus className="text-emerald-500" size={32} />
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-xl font-serif">Start Manual Entry</h3>
+                            <p className="text-zinc-400 text-sm max-w-xs mx-auto">Enter your recipe details manually using our structured editor.</p>
+                          </div>
+                          <button 
+                            onClick={handleStartManualEntry}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-medium transition-all shadow-lg shadow-emerald-900/20"
+                          >
+                            Create New Recipe
+                          </button>
                         </div>
-                      </div>
+                      )}
+                    </div>
                     </>
                   )}
                 </div>
