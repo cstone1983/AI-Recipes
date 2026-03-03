@@ -74,6 +74,7 @@ export default function App() {
   const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
   const [isScanningDuplicates, setIsScanningDuplicates] = useState(false);
   const [hasScannedDuplicates, setHasScannedDuplicates] = useState(false);
+  const [scannedCount, setScannedCount] = useState(0);
 
   // Global check for system update status
   useEffect(() => {
@@ -782,11 +783,23 @@ export default function App() {
     if (!activeRecipe) return;
 
     if (!bypassDuplicateCheck && !activeRecipe.id) {
-      const dups = recipes.filter(r => checkSimilarity(activeRecipe, r) > 0.55);
-      if (dups.length > 0) {
-        setPotentialDuplicates(dups);
-        setShowDuplicateWarning(true);
-        return;
+      setIsCheckingDuplicates(true);
+      try {
+        const res = await fetch('/api/recipes?filter=all', { headers: getHeaders() });
+        const allRecipes = await res.json();
+        
+        if (Array.isArray(allRecipes)) {
+          const dups = allRecipes.filter(r => checkSimilarity(activeRecipe, r) > 0.55);
+          if (dups.length > 0) {
+            setPotentialDuplicates(dups);
+            setShowDuplicateWarning(true);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Duplicate check failed', err);
+      } finally {
+        setIsCheckingDuplicates(false);
       }
     }
 
@@ -817,34 +830,47 @@ export default function App() {
     }
   };
 
-  const handleScanDuplicates = () => {
+  const handleScanDuplicates = async () => {
     setIsScanningDuplicates(true);
     setHasScannedDuplicates(false);
     
-    // Slight delay to ensure loading state is visible and UI doesn't freeze instantly
-    setTimeout(() => {
+    try {
+      // Fetch ALL recipes across all users for the scan
+      const res = await fetch('/api/recipes?filter=all', { headers: getHeaders() });
+      const allRecipes = await res.json();
+      
+      if (!Array.isArray(allRecipes)) {
+        throw new Error('Failed to fetch recipes for scan');
+      }
+
+      setScannedCount(allRecipes.length);
+
       const groups: any[] = [];
       const processed = new Set();
 
-      for (let i = 0; i < recipes.length; i++) {
-        if (processed.has(recipes[i].id)) continue;
-        const group = [recipes[i]];
-        for (let j = i + 1; j < recipes.length; j++) {
-          if (processed.has(recipes[j].id)) continue;
-          if (checkSimilarity(recipes[i], recipes[j]) > 0.55) {
-            group.push(recipes[j]);
-            processed.add(recipes[j].id);
+      for (let i = 0; i < allRecipes.length; i++) {
+        if (processed.has(allRecipes[i].id)) continue;
+        const group = [allRecipes[i]];
+        for (let j = i + 1; j < allRecipes.length; j++) {
+          if (processed.has(allRecipes[j].id)) continue;
+          if (checkSimilarity(allRecipes[i], allRecipes[j]) > 0.55) {
+            group.push(allRecipes[j]);
+            processed.add(allRecipes[j].id);
           }
         }
         if (group.length > 1) {
           groups.push(group);
         }
-        processed.add(recipes[i].id);
+        processed.add(allRecipes[i].id);
       }
       setDuplicateGroups(groups);
-      setIsScanningDuplicates(false);
       setHasScannedDuplicates(true);
-    }, 600);
+    } catch (err) {
+      console.error(err);
+      alert('Error scanning for duplicates across all recipes.');
+    } finally {
+      setIsScanningDuplicates(false);
+    }
   };
 
   const handleMergeRecipes = async (targetId: string, sourceIds: string[]) => {
@@ -1349,12 +1375,12 @@ export default function App() {
                           Discard
                         </button>
                         <button 
-                          onClick={handleSaveRecipe}
-                          disabled={isSaving}
+                          onClick={() => handleSaveRecipe()}
+                          disabled={isSaving || isCheckingDuplicates}
                           className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                         >
-                          {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                          {activeRecipe.id ? 'Update Recipe' : 'Save Recipe'}
+                          {(isSaving || isCheckingDuplicates) ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+                          {isCheckingDuplicates ? 'Checking Duplicates...' : (isSaving ? 'Saving...' : (activeRecipe.id ? 'Update Recipe' : 'Save Recipe'))}
                         </button>
                       </div>
                     </div>
@@ -2008,7 +2034,7 @@ export default function App() {
                           </p>
                           <p className="text-xs text-zinc-500 max-w-xs mx-auto">
                             {hasScannedDuplicates 
-                              ? `We analyzed all ${recipes.length} recipes and found no significant similarities.` 
+                              ? `We analyzed all ${scannedCount} recipes across all users and found no significant similarities.` 
                               : "Click the scan button above to analyze your cookbook for potential duplicates."}
                           </p>
                         </div>
