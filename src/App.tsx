@@ -1386,7 +1386,7 @@ export default function App() {
                     </div>
                     
                     <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="col-span-2 md:col-span-1">
                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Title</label>
                           <input 
@@ -1503,7 +1503,7 @@ export default function App() {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Prep Time (min)</label>
                           <input 
@@ -1533,7 +1533,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">Ingredients</label>
                           <div className="space-y-2">
@@ -2336,7 +2336,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
                     <h3 className="text-lg font-medium mb-4 flex items-center gap-2"><Download size={18} /> System Backup</h3>
                     <p className="text-sm text-zinc-400 mb-6">Download a complete archive of the SQLite database and all uploaded images.</p>
@@ -2587,7 +2587,7 @@ export default function App() {
                   <div className="p-6 space-y-6">
                     <div className="space-y-4">
                       <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Layout size={16} /> Layout Style</label>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <button 
                           onClick={() => setExportOptions({...exportOptions, layout: 'classic'})}
                           className={`p-3 rounded-xl border text-left transition-all ${exportOptions.layout === 'classic' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
@@ -2607,7 +2607,7 @@ export default function App() {
 
                     <div className="space-y-4">
                       <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Palette size={16} /> Design Theme</label>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <button 
                           onClick={() => setExportOptions({...exportOptions, design: 'standard'})}
                           className={`p-3 rounded-xl border text-left transition-all ${exportOptions.design === 'standard' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
