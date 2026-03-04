@@ -748,6 +748,63 @@ export default function App() {
     }
   };
 
+  const formatFraction = (amount: string | number | undefined) => {
+    if (!amount) return '';
+    const strAmount = amount.toString().trim();
+    
+    // If it already contains a fraction or doesn't look like a number, return as is
+    if (strAmount.includes('/') || isNaN(Number(strAmount))) return strAmount;
+    
+    const num = parseFloat(strAmount);
+    const whole = Math.floor(num);
+    const decimal = num - whole;
+    
+    if (decimal < 0.01) return whole.toString();
+    
+    const fractions: [number, string][] = [
+      [0.125, '1/8'],
+      [0.25, '1/4'],
+      [0.333, '1/3'],
+      [0.375, '3/8'],
+      [0.5, '1/2'],
+      [0.625, '5/8'],
+      [0.666, '2/3'],
+      [0.75, '3/4'],
+      [0.875, '7/8'],
+    ];
+    
+    let closest = fractions[0];
+    let minDiff = Math.abs(decimal - closest[0]);
+    
+    for (let i = 1; i < fractions.length; i++) {
+      const diff = Math.abs(decimal - fractions[i][0]);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = fractions[i];
+      }
+    }
+    
+    if (minDiff > 0.05) return num.toString();
+    
+    const fractionStr = closest[1];
+    const unicodeFractions: Record<string, string> = {
+      '1/4': '¼',
+      '1/2': '½',
+      '3/4': '¾',
+      '1/3': '⅓',
+      '2/3': '⅔',
+      '1/8': '⅛',
+      '3/8': '⅜',
+      '5/8': '⅝',
+      '7/8': '⅞',
+    };
+    
+    const displayFraction = unicodeFractions[fractionStr] || fractionStr;
+    
+    if (whole === 0) return displayFraction;
+    return `${whole}${displayFraction}`;
+  };
+
   const checkSimilarity = (r1: any, r2: any) => {
     if (!r1.title || !r2.title) return 0;
     const t1 = r1.title.toLowerCase().trim();
@@ -1858,7 +1915,7 @@ export default function App() {
                             <li key={i} className="text-sm text-zinc-300 flex items-start gap-2">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
                               <span>
-                                {ing.amount && <span className="font-medium text-white mr-1">{ing.amount}</span>}
+                                {ing.amount && <span className="font-medium text-white mr-1">{formatFraction(ing.amount)}</span>}
                                 {ing.unit && <span className="text-zinc-400 mr-1">{ing.unit}</span>}
                                 {ing.name}
                                 {ing.notes && <span className="text-zinc-500 italic ml-1">({ing.notes})</span>}
