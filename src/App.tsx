@@ -73,6 +73,7 @@ export default function App() {
   const [updateUrl, setUpdateUrl] = useState('');
   const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
   const [isScanningDuplicates, setIsScanningDuplicates] = useState(false);
+  const [isEstimatingNutrition, setIsEstimatingNutrition] = useState(false);
   const [hasScannedDuplicates, setHasScannedDuplicates] = useState(false);
   const [scannedCount, setScannedCount] = useState(0);
 
@@ -846,6 +847,31 @@ export default function App() {
     }
 
     return titleScore;
+  };
+
+  const handleEstimateNutrition = async () => {
+    if (!activeRecipe?.id) return;
+    setIsEstimatingNutrition(true);
+    try {
+      const res = await fetch(`/api/recipes/${activeRecipe.id}/estimate-nutrition`, {
+        method: 'POST',
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActiveRecipe({
+          ...activeRecipe,
+          ...data.data
+        });
+      } else {
+        alert('Failed to estimate nutrition: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Nutrition estimation error:', error);
+      alert('An error occurred while estimating nutrition.');
+    } finally {
+      setIsEstimatingNutrition(false);
+    }
   };
 
   const handleSaveRecipe = async (bypassDuplicateCheck = false) => {
@@ -1641,10 +1667,22 @@ export default function App() {
                       </div>
 
                       <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-4">
-                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                          <Droplets size={14} className="text-emerald-500" />
-                          Nutrition (per serving)
-                        </label>
+                        <div className="flex items-center justify-between mb-4">
+                          <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                            <Droplets size={14} className="text-emerald-500" />
+                            Nutrition (per serving)
+                          </label>
+                          {activeRecipe.id && !activeRecipe.calories && !activeRecipe.protein && !activeRecipe.carbs && (
+                            <button 
+                              onClick={handleEstimateNutrition}
+                              disabled={isEstimatingNutrition}
+                              className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-emerald-400 px-2 py-1 rounded border border-zinc-700 transition-colors flex items-center gap-1 disabled:opacity-50"
+                            >
+                              {isEstimatingNutrition ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                              Auto-calculate
+                            </button>
+                          )}
+                        </div>
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                           <div>
                             <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Calories</label>

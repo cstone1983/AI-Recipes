@@ -1246,6 +1246,62 @@ apiRouter.delete('/recipes/:id', authenticate, async (req: any, res) => {
   }
 });
 
+apiRouter.post('/recipes/:id/estimate-nutrition', authenticate, async (req: any, res) => {
+  try {
+    if (!ai) return res.status(500).json({ error: 'AI not configured' });
+    
+    const { id } = req.params;
+    const recipe = await prisma.recipe.findUnique({
+      where: { id },
+      include: { ingredients: true }
+    });
+    
+    if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
+    
+    const prompt = `
+      Estimate the nutritional information per serving for this recipe:
+      Title: ${recipe.title}
+      Yield: ${recipe.yield || 'Not specified'}
+      Ingredients: ${recipe.ingredients.map(i => `${i.amount || ''} ${i.unit || ''} ${i.name} ${i.notes || ''}`).join(', ')}
+      Instructions: ${recipe.instructions}
+
+      Return a strict JSON object:
+      {
+        "calories": 450,
+        "protein": 25.5,
+        "carbs": 40.0,
+        "fat": 15.0,
+        "fiber": 5.0
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: currentGeminiModel,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            calories: { type: Type.INTEGER },
+            protein: { type: Type.NUMBER },
+            carbs: { type: Type.NUMBER },
+            fat: { type: Type.NUMBER },
+            fiber: { type: Type.NUMBER }
+          },
+          required: ['calories', 'protein', 'carbs', 'fat', 'fiber']
+        }
+      }
+    });
+
+    const nutrition = JSON.parse(response.text || "{}");
+    res.json({ success: true, data: nutrition });
+  } catch (error: any) {
+    console.error('Estimate nutrition error:', error);
+    res.status(500).json({ error: 'Failed to estimate nutrition', message: error.message });
+  }
+});
+
 apiRouter.post('/recipes/export/cookbook', authenticate, async (req: any, res) => {
   try {
     const { recipeIds, options } = req.body;
