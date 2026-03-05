@@ -682,7 +682,8 @@ export default function App() {
       instructions: '',
       category: '',
       imageUrl: '',
-      visibility: 'Private'
+      visibility: 'Private',
+      authorId: user?.id
     });
     setIsEditing(false);
     setView('importer');
@@ -730,6 +731,7 @@ export default function App() {
         console.log('Response data:', data);
         if (data.success) {
           let recipe = data.data;
+          if (!recipe.authorId) recipe.authorId = user?.id;
           
           setActiveRecipe(recipe);
           setImportInput('');
@@ -1012,6 +1014,44 @@ export default function App() {
       newSelection.delete(id);
     } else {
       newSelection.add(id);
+    }
+    setSelectedRecipes(newSelection);
+  };
+
+  const displayedRecipes = recipes
+    .filter(r => {
+      if (recipeFilter === 'all') return true;
+      if (recipeFilter === 'none') return !r.category;
+      return r.category === recipeFilter;
+    })
+    .filter(r => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      const inTitle = r.title.toLowerCase().includes(query);
+      const inAuthor = r.author?.username?.toLowerCase().includes(query);
+      const inIngredients = r.ingredients?.some((ing: any) => 
+        ing.name.toLowerCase().includes(query) || 
+        (ing.notes && ing.notes.toLowerCase().includes(query))
+      );
+      return inTitle || inAuthor || inIngredients;
+    })
+    .sort((a, b) => {
+      if (recipeSort === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (recipeSort === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (recipeSort === 'alpha') return a.title.localeCompare(b.title);
+      return 0;
+    });
+
+  const handleSelectAll = () => {
+    if (displayedRecipes.length === 0) return;
+    const allIds = displayedRecipes.map(r => r.id);
+    const allSelected = allIds.every(id => selectedRecipes.has(id));
+    
+    const newSelection = new Set(selectedRecipes);
+    if (allSelected) {
+      allIds.forEach(id => newSelection.delete(id));
+    } else {
+      allIds.forEach(id => newSelection.add(id));
     }
     setSelectedRecipes(newSelection);
   };
@@ -1707,6 +1747,14 @@ export default function App() {
                   <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
                     <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
                       <button 
+                        onClick={handleSelectAll}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${displayedRecipes.length > 0 && displayedRecipes.every(r => selectedRecipes.has(r.id)) ? 'bg-emerald-500 text-zinc-950' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
+                      >
+                        {displayedRecipes.length > 0 && displayedRecipes.every(r => selectedRecipes.has(r.id)) ? 'Deselect All' : 'Select All'}
+                      </button>
+                    </div>
+                    <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                      <button 
                         onClick={() => setRecipeOwnershipFilter('mine')} 
                         className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${recipeOwnershipFilter === 'mine' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
                       >
@@ -1759,30 +1807,7 @@ export default function App() {
                 </div>
 
                 <div className={recipeViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col gap-3"}>
-                  {recipes
-                    .filter(r => {
-                      if (recipeFilter === 'all') return true;
-                      if (recipeFilter === 'none') return !r.category;
-                      return r.category === recipeFilter;
-                    })
-                    .filter(r => {
-                      if (!searchQuery) return true;
-                      const query = searchQuery.toLowerCase();
-                      const inTitle = r.title.toLowerCase().includes(query);
-                      const inAuthor = r.author?.username?.toLowerCase().includes(query);
-                      const inIngredients = r.ingredients?.some((ing: any) => 
-                        ing.name.toLowerCase().includes(query) || 
-                        (ing.notes && ing.notes.toLowerCase().includes(query))
-                      );
-                      return inTitle || inAuthor || inIngredients;
-                    })
-                    .sort((a, b) => {
-                      if (recipeSort === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                      if (recipeSort === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-                      if (recipeSort === 'alpha') return a.title.localeCompare(b.title);
-                      return 0;
-                    })
-                    .map(recipe => (
+                  {displayedRecipes.map(recipe => (
                     <div 
                       key={recipe.id}
                       className={`p-4 rounded-xl border transition-all flex ${recipeViewMode === 'grid' ? 'flex-col' : 'flex-row items-center justify-between'} ${selectedRecipes.has(recipe.id) ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'}`}

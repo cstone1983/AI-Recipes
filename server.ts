@@ -1130,7 +1130,7 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
         imageUrl,
         visibility: visibility || 'Private',
         category,
-        authorId: req.user.id,
+        authorId: req.user.role === 'Admin' && req.body.authorId ? req.body.authorId : req.user.id,
         ingredients: {
           create: sanitizedIngredients
         }
