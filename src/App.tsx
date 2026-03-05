@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChefHat, Search, Plus, Settings, Link as LinkIcon, FileText, Image as ImageIcon, Loader2, Clock, Users, BookOpen, Download, Upload, FileJson, Printer, ShieldAlert, LogOut, User as UserIcon, Check, X, Edit2, Trash2, Globe, Sparkles, RefreshCw, Layers, Layout, Palette, Wand2, Zap } from 'lucide-react';
+import { ChefHat, Search, Plus, Settings, Link as LinkIcon, FileText, Image as ImageIcon, Loader2, Clock, Users, BookOpen, Download, Upload, FileJson, Printer, ShieldAlert, LogOut, User as UserIcon, Check, X, Edit2, Trash2, Globe, Sparkles, RefreshCw, Layers, Layout, Palette, Wand2, Zap, Type, Droplets, Eye } from 'lucide-react';
 
 type ImportType = 'url' | 'text' | 'image' | 'manual';
 type ViewState = 'login' | 'importer' | 'settings' | 'cookbook' | 'admin';
@@ -181,7 +181,12 @@ export default function App() {
   const [exportOptions, setExportOptions] = useState({
     layout: 'classic',
     design: 'standard',
-    includeImages: true
+    includeImages: true,
+    fontSize: 'medium',
+    colorTheme: 'monochrome',
+    includeTOC: true,
+    includeCover: true,
+    paperSize: 'a4',
   });
 
   // Similar Search State
@@ -2633,80 +2638,225 @@ export default function App() {
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl"
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row"
                 >
-                  <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-                    <h2 className="text-xl font-serif flex items-center gap-2"><Printer className="text-emerald-500" size={20} /> Export Cookbook</h2>
-                    <button onClick={() => setShowExportOptions(false)} className="text-zinc-500 hover:text-white transition-colors">
-                      <X size={20} />
-                    </button>
-                  </div>
-                  <div className="p-6 space-y-6">
-                    <div className="space-y-4">
-                      <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Layout size={16} /> Layout Style</label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button 
-                          onClick={() => setExportOptions({...exportOptions, layout: 'classic'})}
-                          className={`p-3 rounded-xl border text-left transition-all ${exportOptions.layout === 'classic' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
-                        >
-                          <p className="text-sm font-bold">Classic</p>
-                          <p className="text-[10px] opacity-70">Standard cookbook layout with clear sections.</p>
-                        </button>
-                        <button 
-                          onClick={() => setExportOptions({...exportOptions, layout: 'compact'})}
-                          className={`p-3 rounded-xl border text-left transition-all ${exportOptions.layout === 'compact' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
-                        >
-                          <p className="text-sm font-bold">Compact</p>
-                          <p className="text-[10px] opacity-70">Space-saving layout for printing more on one page.</p>
-                        </button>
+                  {/* Left: Options */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-8 border-r border-zinc-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-2xl font-serif flex items-center gap-2"><Printer className="text-emerald-500" size={24} /> Export Cookbook</h2>
+                      <button onClick={() => setShowExportOptions(false)} className="md:hidden text-zinc-500 hover:text-white transition-colors">
+                        <X size={20} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Layout size={16} /> Layout Style</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          <button 
+                            onClick={() => setExportOptions({...exportOptions, layout: 'classic'})}
+                            className={`p-3 rounded-xl border text-left transition-all ${exportOptions.layout === 'classic' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
+                          >
+                            <p className="text-sm font-bold">Classic</p>
+                            <p className="text-[10px] opacity-70">Standard cookbook layout with clear sections.</p>
+                          </button>
+                          <button 
+                            onClick={() => setExportOptions({...exportOptions, layout: 'compact'})}
+                            className={`p-3 rounded-xl border text-left transition-all ${exportOptions.layout === 'compact' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
+                          >
+                            <p className="text-sm font-bold">Compact</p>
+                            <p className="text-[10px] opacity-70">Space-saving layout for printing more on one page.</p>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Palette size={16} /> Design Theme</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          <button 
+                            onClick={() => setExportOptions({...exportOptions, design: 'standard'})}
+                            className={`p-3 rounded-xl border text-left transition-all ${exportOptions.design === 'standard' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
+                          >
+                            <p className="text-sm font-bold">Standard</p>
+                            <p className="text-[10px] opacity-70">Clean, professional serif typography.</p>
+                          </button>
+                          <button 
+                            onClick={() => setExportOptions({...exportOptions, design: 'modern'})}
+                            className={`p-3 rounded-xl border text-left transition-all ${exportOptions.design === 'modern' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
+                          >
+                            <p className="text-sm font-bold">Modern</p>
+                            <p className="text-[10px] opacity-70">Minimalist sans-serif with italic accents.</p>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Type size={16} /> Font Size</label>
+                        <div className="flex gap-2">
+                          {['small', 'medium', 'large'].map(size => (
+                            <button 
+                              key={size}
+                              onClick={() => setExportOptions({...exportOptions, fontSize: size})}
+                              className={`flex-1 py-2 rounded-lg border text-xs font-medium capitalize transition-all ${exportOptions.fontSize === size ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Droplets size={16} /> Color Theme</label>
+                        <div className="flex gap-2">
+                          {[
+                            { id: 'monochrome', color: 'bg-zinc-400' },
+                            { id: 'emerald', color: 'bg-emerald-500' },
+                            { id: 'indigo', color: 'bg-indigo-500' },
+                            { id: 'rose', color: 'bg-rose-500' }
+                          ].map(theme => (
+                            <button 
+                              key={theme.id}
+                              onClick={() => setExportOptions({...exportOptions, colorTheme: theme.id})}
+                              className={`w-8 h-8 rounded-full border-2 transition-all ${exportOptions.colorTheme === theme.id ? 'border-white scale-110' : 'border-transparent opacity-60 hover:opacity-100'} ${theme.color}`}
+                              title={theme.id}
+                            />
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <label className="block text-sm font-medium text-zinc-400 flex items-center gap-2"><Palette size={16} /> Design Theme</label>
+                    <div className="space-y-4 pt-4 border-t border-zinc-800">
+                      <label className="block text-sm font-medium text-zinc-400">Content Sections</label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button 
-                          onClick={() => setExportOptions({...exportOptions, design: 'standard'})}
-                          className={`p-3 rounded-xl border text-left transition-all ${exportOptions.design === 'standard' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
-                        >
-                          <p className="text-sm font-bold">Standard</p>
-                          <p className="text-[10px] opacity-70">Clean, professional serif typography.</p>
-                        </button>
-                        <button 
-                          onClick={() => setExportOptions({...exportOptions, design: 'modern'})}
-                          className={`p-3 rounded-xl border text-left transition-all ${exportOptions.design === 'modern' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
-                        >
-                          <p className="text-sm font-bold">Modern</p>
-                          <p className="text-[10px] opacity-70">Minimalist sans-serif with italic accents.</p>
-                        </button>
+                        <div className="flex items-center gap-3 p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                          <input 
+                            type="checkbox" 
+                            id="includeImages"
+                            checked={exportOptions.includeImages}
+                            onChange={e => setExportOptions({...exportOptions, includeImages: e.target.checked})}
+                            className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <label htmlFor="includeImages" className="text-xs text-zinc-300 cursor-pointer">Include Images</label>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                          <input 
+                            type="checkbox" 
+                            id="includeTOC"
+                            checked={exportOptions.includeTOC}
+                            onChange={e => setExportOptions({...exportOptions, includeTOC: e.target.checked})}
+                            className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <label htmlFor="includeTOC" className="text-xs text-zinc-300 cursor-pointer">Table of Contents</label>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                          <input 
+                            type="checkbox" 
+                            id="includeCover"
+                            checked={exportOptions.includeCover}
+                            onChange={e => setExportOptions({...exportOptions, includeCover: e.target.checked})}
+                            className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <label htmlFor="includeCover" className="text-xs text-zinc-300 cursor-pointer">Cover Page</label>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 bg-zinc-950 rounded-xl border border-zinc-800">
+                          <select 
+                            value={exportOptions.paperSize}
+                            onChange={e => setExportOptions({...exportOptions, paperSize: e.target.value})}
+                            className="bg-transparent text-xs text-zinc-300 focus:outline-none w-full"
+                          >
+                            <option value="a4">A4 Paper</option>
+                            <option value="letter">Letter Paper</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Preview */}
+                  <div className="hidden md:flex flex-col w-[380px] bg-zinc-950 p-6 border-l border-zinc-800">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2"><Eye size={16} /> Live Preview</h3>
+                      <button onClick={() => setShowExportOptions(false)} className="text-zinc-500 hover:text-white transition-colors">
+                        <X size={20} />
+                      </button>
+                    </div>
+                    
+                    <div className="flex-1 bg-white rounded-lg shadow-inner overflow-hidden flex flex-col items-center p-8 relative">
+                      {/* Page Mockup */}
+                      <div className={`w-full h-full border-2 border-zinc-100 p-6 flex flex-col ${exportOptions.design === 'modern' ? 'font-sans' : 'font-serif'} text-zinc-900`}>
+                        {/* Header */}
+                        <div className={`text-center mb-6 ${exportOptions.colorTheme === 'emerald' ? 'text-emerald-600' : exportOptions.colorTheme === 'indigo' ? 'text-indigo-600' : exportOptions.colorTheme === 'rose' ? 'text-rose-600' : 'text-zinc-900'}`}>
+                          <h4 className={`${exportOptions.fontSize === 'large' ? 'text-xl' : exportOptions.fontSize === 'small' ? 'text-sm' : 'text-lg'} font-bold border-b-2 border-current pb-1 mb-1`}>
+                            My Cookbook
+                          </h4>
+                          <p className="text-[8px] uppercase tracking-widest opacity-60">Selected Recipes Collection</p>
+                        </div>
+
+                        {/* Content Mockup */}
+                        <div className="space-y-4">
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-baseline">
+                              <span className={`font-bold ${exportOptions.fontSize === 'large' ? 'text-sm' : 'text-xs'}`}>1. Classic Pasta Carbonara</span>
+                              <span className="text-[8px] text-zinc-400">Page 3</span>
+                            </div>
+                            <div className="h-1 w-full bg-zinc-100 rounded-full" />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-baseline">
+                              <span className={`font-bold ${exportOptions.fontSize === 'large' ? 'text-sm' : 'text-xs'}`}>2. Homemade Pizza Dough</span>
+                              <span className="text-[8px] text-zinc-400">Page 5</span>
+                            </div>
+                            <div className="h-1 w-full bg-zinc-100 rounded-full" />
+                          </div>
+
+                          <div className="pt-4 space-y-2">
+                             <div className={`h-2 w-1/3 rounded ${exportOptions.colorTheme === 'emerald' ? 'bg-emerald-100' : exportOptions.colorTheme === 'indigo' ? 'bg-indigo-100' : exportOptions.colorTheme === 'rose' ? 'bg-rose-100' : 'bg-zinc-100'}`} />
+                             <div className="space-y-1">
+                               <div className="h-1 w-full bg-zinc-50 rounded" />
+                               <div className="h-1 w-full bg-zinc-50 rounded" />
+                               <div className="h-1 w-2/3 bg-zinc-50 rounded" />
+                             </div>
+                          </div>
+
+                          {exportOptions.includeImages && (
+                            <div className="mt-4 aspect-video bg-zinc-100 rounded-md flex items-center justify-center">
+                              <ImageIcon className="text-zinc-300" size={24} />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Footer */}
+                        <div className="absolute bottom-4 left-0 right-0 text-center">
+                          <span className="text-[8px] text-zinc-300">Page 1 of {selectedRecipes.size + 1}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 p-4 bg-zinc-950 rounded-xl border border-zinc-800">
-                      <input 
-                        type="checkbox" 
-                        id="includeImages"
-                        checked={exportOptions.includeImages}
-                        onChange={e => setExportOptions({...exportOptions, includeImages: e.target.checked})}
-                        className="w-4 h-4 rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
-                      />
-                      <label htmlFor="includeImages" className="text-sm text-zinc-300 cursor-pointer">Include recipe images in export</label>
+                    <div className="mt-6 space-y-3">
+                      <button 
+                        onClick={handleExportCookbook}
+                        disabled={isExporting}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl font-medium transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+                      >
+                        {isExporting ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />}
+                        {isExporting ? 'Generating...' : 'Download Cookbook'}
+                      </button>
+                      <p className="text-[10px] text-zinc-500 text-center">
+                        Generates a high-quality DOCX file with indexed TOC and bookmarks.
+                      </p>
                     </div>
                   </div>
-                  <div className="p-6 bg-zinc-950/50 border-t border-zinc-800 flex gap-3">
-                    <button 
-                      onClick={() => setShowExportOptions(false)}
-                      className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:bg-zinc-800 transition-colors"
-                    >
-                      Cancel
-                    </button>
+
+                  {/* Mobile Footer */}
+                  <div className="md:hidden p-4 bg-zinc-950 border-t border-zinc-800">
                     <button 
                       onClick={handleExportCookbook}
                       disabled={isExporting}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
                     >
-                      {isExporting ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
-                      {isExporting ? 'Generating...' : 'Download DOCX'}
+                      {isExporting ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />}
+                      {isExporting ? 'Generating...' : 'Download Cookbook'}
                     </button>
                   </div>
                 </motion.div>
