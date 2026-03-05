@@ -860,20 +860,31 @@ export default function App() {
     return titleScore;
   };
 
-  const handleEstimateNutrition = async () => {
-    if (!activeRecipe?.id) return;
+  const handleEstimateNutrition = async (recipeId?: string, isViewing: boolean = false) => {
+    const id = recipeId || activeRecipe?.id;
+    if (!id) return;
+    
     setIsEstimatingNutrition(true);
     try {
-      const res = await fetch(`/api/recipes/${activeRecipe.id}/estimate-nutrition`, {
+      const res = await fetch(`/api/recipes/${id}/estimate-nutrition`, {
         method: 'POST',
         headers: getHeaders()
       });
       const data = await res.json();
       if (data.success) {
-        setActiveRecipe({
-          ...activeRecipe,
-          ...data.data
-        });
+        if (isViewing && viewingRecipe && viewingRecipe.id === id) {
+          setViewingRecipe({
+            ...viewingRecipe,
+            ...data.data
+          });
+          // Also update in the list
+          setRecipes(recipes.map(r => r.id === id ? { ...r, ...data.data } : r));
+        } else if (activeRecipe && activeRecipe.id === id) {
+          setActiveRecipe({
+            ...activeRecipe,
+            ...data.data
+          });
+        }
       } else {
         alert('Failed to estimate nutrition: ' + data.error);
       }
@@ -1683,14 +1694,15 @@ export default function App() {
                             <Droplets size={14} className="text-emerald-500" />
                             Nutrition (per serving)
                           </label>
-                          {activeRecipe.id && !activeRecipe.calories && !activeRecipe.protein && !activeRecipe.carbs && (
+                          {activeRecipe.id && (
                             <button 
-                              onClick={handleEstimateNutrition}
+                              onClick={() => handleEstimateNutrition()}
                               disabled={isEstimatingNutrition}
-                              className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-emerald-400 px-2 py-1 rounded border border-zinc-700 transition-colors flex items-center gap-1 disabled:opacity-50"
+                              className="text-[10px] bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/30 transition-colors flex items-center gap-1 disabled:opacity-50"
+                              title="Use Gemini AI to estimate missing nutritional values"
                             >
                               {isEstimatingNutrition ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                              Auto-calculate
+                              Auto-calculate missing info
                             </button>
                           )}
                         </div>
@@ -2182,6 +2194,19 @@ export default function App() {
                       {viewingRecipe.yield && <div><span className="text-zinc-500 uppercase text-xs tracking-wider block mb-1">Yield</span>{viewingRecipe.yield}</div>}
                       {viewingRecipe.category && <div><span className="text-zinc-500 uppercase text-xs tracking-wider block mb-1">Category</span>{viewingRecipe.category}</div>}
                     </div>
+
+                    {(!viewingRecipe.calories || !viewingRecipe.protein || !viewingRecipe.carbs || !viewingRecipe.fat || !viewingRecipe.sodium) && (
+                      <div className="flex justify-center -mt-4 mb-4">
+                        <button 
+                          onClick={() => handleEstimateNutrition(viewingRecipe.id, true)}
+                          disabled={isEstimatingNutrition}
+                          className="flex items-center gap-2 text-xs bg-emerald-600/10 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-xl hover:bg-emerald-600/20 transition-all shadow-sm hover:shadow-md disabled:opacity-50"
+                        >
+                          {isEstimatingNutrition ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                          Estimate Missing Nutrition with Gemini AI
+                        </button>
+                      </div>
+                    )}
 
                     {(viewingRecipe.calories || viewingRecipe.protein || viewingRecipe.carbs || viewingRecipe.fat) && (
                       <div className="flex justify-center py-4">
