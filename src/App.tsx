@@ -683,7 +683,12 @@ export default function App() {
       category: '',
       imageUrl: '',
       visibility: 'Private',
-      authorId: user?.id
+      authorId: user?.id,
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      fiber: 0
     });
     setIsEditing(false);
     setView('importer');
@@ -1635,6 +1640,69 @@ export default function App() {
                         </div>
                       </div>
 
+                      <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-4">
+                        <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                          <Droplets size={14} className="text-emerald-500" />
+                          Nutrition (per serving)
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Calories</label>
+                            <input 
+                              type="number" 
+                              value={activeRecipe.calories || ''}
+                              onChange={e => setActiveRecipe({...activeRecipe, calories: parseInt(e.target.value) || 0})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Protein (g)</label>
+                            <input 
+                              type="number" 
+                              step="0.1"
+                              value={activeRecipe.protein || ''}
+                              onChange={e => setActiveRecipe({...activeRecipe, protein: parseFloat(e.target.value) || 0})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Carbs (g)</label>
+                            <input 
+                              type="number" 
+                              step="0.1"
+                              value={activeRecipe.carbs || ''}
+                              onChange={e => setActiveRecipe({...activeRecipe, carbs: parseFloat(e.target.value) || 0})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Fat (g)</label>
+                            <input 
+                              type="number" 
+                              step="0.1"
+                              value={activeRecipe.fat || ''}
+                              onChange={e => setActiveRecipe({...activeRecipe, fat: parseFloat(e.target.value) || 0})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Fiber (g)</label>
+                            <input 
+                              type="number" 
+                              step="0.1"
+                              value={activeRecipe.fiber || ''}
+                              onChange={e => setActiveRecipe({...activeRecipe, fiber: parseFloat(e.target.value) || 0})}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
                           <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">Ingredients</label>
@@ -1828,6 +1896,11 @@ export default function App() {
                         <div className="flex items-center gap-4 text-xs text-zinc-500 mt-2">
                           <span className="flex items-center gap-1"><Clock size={12} /> {(recipe.prepTime || 0) + (recipe.cookTime || 0)}m</span>
                           <span className="flex items-center gap-1"><Users size={12} /> {recipe.yield || 'N/A'}</span>
+                          {recipe.calories && (
+                            <span className="flex items-center gap-1 text-emerald-500/80">
+                              <Droplets size={12} /> {recipe.calories} kcal
+                            </span>
+                          )}
                         </div>
                       </div>
                       
@@ -1936,6 +2009,37 @@ export default function App() {
                       {viewingRecipe.yield && <div><span className="text-zinc-500 uppercase text-xs tracking-wider block mb-1">Yield</span>{viewingRecipe.yield}</div>}
                       {viewingRecipe.category && <div><span className="text-zinc-500 uppercase text-xs tracking-wider block mb-1">Category</span>{viewingRecipe.category}</div>}
                     </div>
+
+                    {(viewingRecipe.calories || viewingRecipe.protein || viewingRecipe.carbs || viewingRecipe.fat) && (
+                      <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-4">
+                        <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <Droplets size={12} className="text-emerald-500" />
+                          Nutrition per serving
+                        </h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                          <div className="flex flex-col">
+                            <span className="text-lg font-medium text-white">{viewingRecipe.calories || 0}</span>
+                            <span className="text-[10px] text-zinc-500 uppercase">Calories</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-lg font-medium text-white">{viewingRecipe.protein || 0}g</span>
+                            <span className="text-[10px] text-zinc-500 uppercase">Protein</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-lg font-medium text-white">{viewingRecipe.carbs || 0}g</span>
+                            <span className="text-[10px] text-zinc-500 uppercase">Carbs</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-lg font-medium text-white">{viewingRecipe.fat || 0}g</span>
+                            <span className="text-[10px] text-zinc-500 uppercase">Fat</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-lg font-medium text-white">{viewingRecipe.fiber || 0}g</span>
+                            <span className="text-[10px] text-zinc-500 uppercase">Fiber</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="md:col-span-1 space-y-4">

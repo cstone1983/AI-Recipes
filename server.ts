@@ -951,6 +951,9 @@ apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
       If the input is from a social media platform like Facebook, Instagram, or TikTok (e.g., a reel or post), 
       pay close attention to context clues in the description, comments, or visual text to reconstruct the full recipe.
       
+      IMPORTANT: Estimate the nutritional information per serving based on the ingredients and quantities provided.
+      (NOTE: We will switch to Nutritionix API later for more precision, but use your best estimation for now).
+
       Return a strict JSON object matching this schema:
       {
         "title": "Recipe Name",
@@ -960,6 +963,11 @@ apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
         "yield": "4 servings",
         "instructions": "Step 1... Step 2...", 
         "imageUrl": "https://example.com/image.jpg",
+        "calories": 450, // per serving
+        "protein": 25.5, // per serving in grams
+        "carbs": 40.0, // per serving in grams
+        "fat": 15.0, // per serving in grams
+        "fiber": 5.0, // per serving in grams
         "ingredients": [
           { "name": "Flour", "amount": 2, "unit": "cups", "notes": "sifted" }
         ]
@@ -979,6 +987,11 @@ apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
           yield: { type: Type.STRING },
           instructions: { type: Type.STRING },
           imageUrl: { type: Type.STRING },
+          calories: { type: Type.INTEGER },
+          protein: { type: Type.NUMBER },
+          carbs: { type: Type.NUMBER },
+          fat: { type: Type.NUMBER },
+          fiber: { type: Type.NUMBER },
           ingredients: {
             type: Type.ARRAY,
             items: {
@@ -1098,7 +1111,11 @@ apiRouter.get('/recipes', authenticate, async (req: any, res) => {
 
 apiRouter.post('/recipes', authenticate, async (req: any, res) => {
   try {
-    const { title, description, prepTime, cookTime, yield: recipeYield, instructions, imageUrl, visibility, category, ingredients } = req.body;
+    const { 
+      title, description, prepTime, cookTime, yield: recipeYield, 
+      instructions, imageUrl, visibility, category, ingredients,
+      calories, protein, carbs, fat, fiber
+    } = req.body;
     
     const toInt = (val: any) => {
       if (val === undefined || val === null || val === '') return null;
@@ -1130,6 +1147,11 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
         imageUrl,
         visibility: visibility || 'Private',
         category,
+        calories: toInt(calories),
+        protein: toFloat(protein),
+        carbs: toFloat(carbs),
+        fat: toFloat(fat),
+        fiber: toFloat(fiber),
         authorId: req.user.role === 'Admin' && req.body.authorId ? req.body.authorId : req.user.id,
         ingredients: {
           create: sanitizedIngredients
@@ -1146,7 +1168,11 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
 apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
   try {
     const { id } = req.params;
-    const { title, description, prepTime, cookTime, yield: recipeYield, instructions, imageUrl, visibility, category, ingredients, authorId } = req.body;
+    const { 
+      title, description, prepTime, cookTime, yield: recipeYield, 
+      instructions, imageUrl, visibility, category, ingredients, authorId,
+      calories, protein, carbs, fat, fiber
+    } = req.body;
     
     const existing = await prisma.recipe.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Recipe not found' });
@@ -1185,6 +1211,11 @@ apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
         imageUrl,
         visibility,
         category,
+        calories: toInt(calories),
+        protein: toFloat(protein),
+        carbs: toFloat(carbs),
+        fat: toFloat(fat),
+        fiber: toFloat(fiber),
         authorId: req.user.role === 'Admin' && authorId ? authorId : existing.authorId,
         ingredients: {
           deleteMany: {},
