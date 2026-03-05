@@ -29,3 +29,22 @@
     display: none !important;
   }
 }
+
+/* High Contrast Nutrition Label */
+.nutrition-facts-label,
+.nutrition-facts-label div,
+.nutrition-facts-label span,
+.nutrition-facts-label h2,
+.nutrition-facts-label h3,
+.nutrition-facts-label h4 {
+  color: #000000 !important;
+  border-color: #000000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  text-shadow: none !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+
+.nutrition-facts-label {
+  background-color: #ffffff !important;
+}
