@@ -2185,86 +2185,86 @@ export default function App() {
 
                     {(viewingRecipe.calories || viewingRecipe.protein || viewingRecipe.carbs || viewingRecipe.fat) && (
                       <div className="flex justify-center py-4">
-                        <div className="bg-white text-black p-4 border-2 border-black w-full max-w-[300px] font-sans shadow-lg">
-                          <h2 className="text-3xl font-black border-b-8 border-black pb-1 leading-none">Nutrition Facts</h2>
-                          <div className="border-b border-black py-1 text-sm font-bold">
+                        <div className="bg-white !bg-white !text-black p-5 border-2 border-black w-full max-w-[320px] font-sans shadow-2xl mx-auto">
+                          <h2 className="text-4xl font-black border-b-[12px] border-black pb-1 leading-none !text-black tracking-tighter">Nutrition Facts</h2>
+                          <div className="border-b border-black py-1 text-sm font-bold !text-black">
                             {viewingRecipe.yield || '1 serving'} per recipe
                           </div>
-                          <div className="flex justify-between items-end border-b-8 border-black py-1">
-                            <div className="font-black text-lg">Serving size</div>
-                            <div className="font-black text-lg">1 serving</div>
+                          <div className="flex justify-between items-end border-b-[10px] border-black py-1 !text-black">
+                            <div className="font-black text-xl !text-black">Serving size</div>
+                            <div className="font-black text-xl !text-black">1 serving</div>
                           </div>
                           
-                          <div className="flex justify-between items-baseline py-1 border-b border-black">
-                            <div className="flex flex-col">
-                              <div className="font-black text-sm">Amount per serving</div>
-                              <div className="font-black text-3xl leading-none">Calories</div>
+                          <div className="flex justify-between items-baseline py-2 border-b border-black !text-black">
+                            <div className="flex flex-col !text-black">
+                              <div className="font-black text-xs !text-black uppercase tracking-tight">Amount per serving</div>
+                              <div className="font-black text-3xl leading-none !text-black">Calories</div>
                             </div>
-                            <div className="font-black text-4xl leading-none">{viewingRecipe.calories || 0}</div>
+                            <div className="font-black text-5xl leading-none !text-black">{viewingRecipe.calories || 0}</div>
                           </div>
 
-                          <div className="text-right text-[10px] font-black py-1 border-b border-black">% Daily Value*</div>
+                          <div className="text-right text-[10px] font-black py-1 border-b-2 border-black !text-black">% Daily Value*</div>
                           
-                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
-                            <div><span className="font-black">Total Fat</span> {viewingRecipe.fat || 0}g</div>
-                            <div className="font-black">{Math.round(((viewingRecipe.fat || 0) / 78) * 100)}%</div>
+                          <div className="flex justify-between border-b border-zinc-400 py-1 text-sm !text-black">
+                            <div><span className="font-black !text-black">Total Fat</span> {viewingRecipe.fat || 0}g</div>
+                            <div className="font-black !text-black">{Math.round(((viewingRecipe.fat || 0) / 78) * 100)}%</div>
                           </div>
-                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs pl-4">
+                          <div className="flex justify-between border-b border-zinc-400 py-1 text-sm pl-4 !text-black">
                             <div>Saturated Fat {viewingRecipe.saturatedFat || 0}g</div>
-                            <div className="font-black">{Math.round(((viewingRecipe.saturatedFat || 0) / 20) * 100)}%</div>
+                            <div className="font-black !text-black">{Math.round(((viewingRecipe.saturatedFat || 0) / 20) * 100)}%</div>
                           </div>
-                          <div className="border-b border-zinc-300 py-0.5 text-xs pl-4 italic">
+                          <div className="border-b border-zinc-400 py-1 text-sm pl-4 italic !text-black">
                             Trans Fat {viewingRecipe.transFat || 0}g
                           </div>
                           
-                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
-                            <div><span className="font-black">Cholesterol</span> {viewingRecipe.cholesterol || 0}mg</div>
-                            <div className="font-black">{Math.round(((viewingRecipe.cholesterol || 0) / 300) * 100)}%</div>
+                          <div className="flex justify-between border-b border-zinc-400 py-1 text-sm !text-black">
+                            <div><span className="font-black !text-black">Cholesterol</span> {viewingRecipe.cholesterol || 0}mg</div>
+                            <div className="font-black !text-black">{Math.round(((viewingRecipe.cholesterol || 0) / 300) * 100)}%</div>
                           </div>
                           
-                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
-                            <div><span className="font-black">Sodium</span> {viewingRecipe.sodium || 0}mg</div>
-                            <div className="font-black">{Math.round(((viewingRecipe.sodium || 0) / 2300) * 100)}%</div>
+                          <div className="flex justify-between border-b border-zinc-400 py-1 text-sm !text-black">
+                            <div><span className="font-black !text-black">Sodium</span> {viewingRecipe.sodium || 0}mg</div>
+                            <div className="font-black !text-black">{Math.round(((viewingRecipe.sodium || 0) / 2300) * 100)}%</div>
                           </div>
                           
-                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
-                            <div><span className="font-black">Total Carbohydrate</span> {viewingRecipe.carbs || 0}g</div>
-                            <div className="font-black">{Math.round(((viewingRecipe.carbs || 0) / 275) * 100)}%</div>
+                          <div className="flex justify-between border-b border-zinc-400 py-1 text-sm !text-black">
+                            <div><span className="font-black !text-black">Total Carbohydrate</span> {viewingRecipe.carbs || 0}g</div>
+                            <div className="font-black !text-black">{Math.round(((viewingRecipe.carbs || 0) / 275) * 100)}%</div>
                           </div>
-                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs pl-4">
+                          <div className="flex justify-between border-b border-zinc-400 py-1 text-sm pl-4 !text-black">
                             <div>Dietary Fiber {viewingRecipe.fiber || 0}g</div>
-                            <div className="font-black">{Math.round(((viewingRecipe.fiber || 0) / 28) * 100)}%</div>
+                            <div className="font-black !text-black">{Math.round(((viewingRecipe.fiber || 0) / 28) * 100)}%</div>
                           </div>
-                          <div className="border-b border-zinc-300 py-0.5 text-xs pl-4">
+                          <div className="border-b border-zinc-400 py-1 text-sm pl-4 !text-black">
                             Total Sugars {viewingRecipe.sugar || 0}g
                           </div>
-                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs pl-8">
+                          <div className="flex justify-between border-b border-zinc-400 py-1 text-sm pl-8 !text-black">
                             <div>Includes {viewingRecipe.addedSugar || 0}g Added Sugars</div>
-                            <div className="font-black">{Math.round(((viewingRecipe.addedSugar || 0) / 50) * 100)}%</div>
+                            <div className="font-black !text-black">{Math.round(((viewingRecipe.addedSugar || 0) / 50) * 100)}%</div>
                           </div>
                           
-                          <div className="border-b-8 border-black py-0.5 text-xs">
-                            <span className="font-black">Protein</span> {viewingRecipe.protein || 0}g
+                          <div className="border-b-[10px] border-black py-1 text-sm !text-black">
+                            <span className="font-black !text-black">Protein</span> {viewingRecipe.protein || 0}g
                           </div>
 
-                          <div className="border-b border-zinc-300 py-0.5 text-xs flex justify-between">
+                          <div className="border-b border-zinc-400 py-1 text-sm flex justify-between !text-black">
                             <div>Vitamin D {viewingRecipe.vitaminD || 0}mcg</div>
-                            <div>{Math.round(((viewingRecipe.vitaminD || 0) / 20) * 100)}%</div>
+                            <div className="!text-black">{Math.round(((viewingRecipe.vitaminD || 0) / 20) * 100)}%</div>
                           </div>
-                          <div className="border-b border-zinc-300 py-0.5 text-xs flex justify-between">
+                          <div className="border-b border-zinc-400 py-1 text-sm flex justify-between !text-black">
                             <div>Calcium {viewingRecipe.calcium || 0}mg</div>
-                            <div>{Math.round(((viewingRecipe.calcium || 0) / 1300) * 100)}%</div>
+                            <div className="!text-black">{Math.round(((viewingRecipe.calcium || 0) / 1300) * 100)}%</div>
                           </div>
-                          <div className="border-b border-zinc-300 py-0.5 text-xs flex justify-between">
+                          <div className="border-b border-zinc-400 py-1 text-sm flex justify-between !text-black">
                             <div>Iron {viewingRecipe.iron || 0}mg</div>
-                            <div>{Math.round(((viewingRecipe.iron || 0) / 18) * 100)}%</div>
+                            <div className="!text-black">{Math.round(((viewingRecipe.iron || 0) / 18) * 100)}%</div>
                           </div>
-                          <div className="border-b border-black py-0.5 text-xs flex justify-between">
+                          <div className="border-b-4 border-black py-1 text-sm flex justify-between !text-black">
                             <div>Potassium {viewingRecipe.potassium || 0}mg</div>
-                            <div>{Math.round(((viewingRecipe.potassium || 0) / 4700) * 100)}%</div>
+                            <div className="!text-black">{Math.round(((viewingRecipe.potassium || 0) / 4700) * 100)}%</div>
                           </div>
 
-                          <div className="text-[8px] leading-tight pt-1">
+                          <div className="text-[9px] leading-tight pt-2 !text-black italic">
                             * The % Daily Value (DV) tells you how much a nutrient in a serving of food contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.
                           </div>
                         </div>
