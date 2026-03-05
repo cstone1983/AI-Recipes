@@ -65,6 +65,16 @@ model Recipe {
   carbs        Float?
   fat          Float?
   fiber        Float?
+  saturatedFat Float?
+  transFat     Float?
+  cholesterol  Float?
+  sodium       Float?
+  sugar        Float?
+  addedSugar   Float?
+  vitaminD     Float?
+  calcium      Float?
+  iron         Float?
+  potassium    Float?
   ingredients  Ingredient[]
   author       User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   tags         Tag[]        @relation("RecipeToTag")

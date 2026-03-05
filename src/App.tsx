@@ -74,6 +74,7 @@ export default function App() {
   const [duplicateGroups, setDuplicateGroups] = useState<any[]>([]);
   const [isScanningDuplicates, setIsScanningDuplicates] = useState(false);
   const [isEstimatingNutrition, setIsEstimatingNutrition] = useState(false);
+  const [showAdvancedNutrition, setShowAdvancedNutrition] = useState(false);
   const [hasScannedDuplicates, setHasScannedDuplicates] = useState(false);
   const [scannedCount, setScannedCount] = useState(0);
 
@@ -689,7 +690,17 @@ export default function App() {
       protein: 0,
       carbs: 0,
       fat: 0,
-      fiber: 0
+      fiber: 0,
+      saturatedFat: 0,
+      transFat: 0,
+      cholesterol: 0,
+      sodium: 0,
+      sugar: 0,
+      addedSugar: 0,
+      vitaminD: 0,
+      calcium: 0,
+      iron: 0,
+      potassium: 0
     });
     setIsEditing(false);
     setView('importer');
@@ -1739,6 +1750,130 @@ export default function App() {
                             />
                           </div>
                         </div>
+
+                        <div className="mt-4">
+                          <button 
+                            onClick={() => setShowAdvancedNutrition(!showAdvancedNutrition)}
+                            className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 uppercase tracking-widest font-bold"
+                          >
+                            {showAdvancedNutrition ? 'Hide Advanced Nutrition' : 'Show Advanced Nutrition'}
+                            <Plus size={10} className={`transition-transform ${showAdvancedNutrition ? 'rotate-45' : ''}`} />
+                          </button>
+
+                          <AnimatePresence>
+                            {showAdvancedNutrition && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-4 pt-4 border-t border-zinc-800/50">
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Sat. Fat (g)</label>
+                                    <input 
+                                      type="number" step="0.1"
+                                      value={activeRecipe.saturatedFat || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, saturatedFat: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Trans Fat (g)</label>
+                                    <input 
+                                      type="number" step="0.1"
+                                      value={activeRecipe.transFat || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, transFat: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Cholesterol (mg)</label>
+                                    <input 
+                                      type="number"
+                                      value={activeRecipe.cholesterol || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, cholesterol: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Sodium (mg)</label>
+                                    <input 
+                                      type="number"
+                                      value={activeRecipe.sodium || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, sodium: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Sugar (g)</label>
+                                    <input 
+                                      type="number" step="0.1"
+                                      value={activeRecipe.sugar || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, sugar: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Added Sugar (g)</label>
+                                    <input 
+                                      type="number" step="0.1"
+                                      value={activeRecipe.addedSugar || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, addedSugar: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Vitamin D (mcg)</label>
+                                    <input 
+                                      type="number" step="0.1"
+                                      value={activeRecipe.vitaminD || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, vitaminD: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Calcium (mg)</label>
+                                    <input 
+                                      type="number"
+                                      value={activeRecipe.calcium || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, calcium: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Iron (mg)</label>
+                                    <input 
+                                      type="number" step="0.1"
+                                      value={activeRecipe.iron || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, iron: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-semibold text-zinc-600 uppercase mb-1">Potassium (mg)</label>
+                                    <input 
+                                      type="number"
+                                      value={activeRecipe.potassium || ''}
+                                      onChange={e => setActiveRecipe({...activeRecipe, potassium: parseFloat(e.target.value) || 0})}
+                                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2049,31 +2184,88 @@ export default function App() {
                     </div>
 
                     {(viewingRecipe.calories || viewingRecipe.protein || viewingRecipe.carbs || viewingRecipe.fat) && (
-                      <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-4">
-                        <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <Droplets size={12} className="text-emerald-500" />
-                          Nutrition per serving
-                        </h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                          <div className="flex flex-col">
-                            <span className="text-lg font-medium text-white">{viewingRecipe.calories || 0}</span>
-                            <span className="text-[10px] text-zinc-500 uppercase">Calories</span>
+                      <div className="flex justify-center py-4">
+                        <div className="bg-white text-black p-4 border-2 border-black w-full max-w-[300px] font-sans shadow-lg">
+                          <h2 className="text-3xl font-black border-b-8 border-black pb-1 leading-none">Nutrition Facts</h2>
+                          <div className="border-b border-black py-1 text-sm font-bold">
+                            {viewingRecipe.yield || '1 serving'} per recipe
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-lg font-medium text-white">{viewingRecipe.protein || 0}g</span>
-                            <span className="text-[10px] text-zinc-500 uppercase">Protein</span>
+                          <div className="flex justify-between items-end border-b-8 border-black py-1">
+                            <div className="font-black text-lg">Serving size</div>
+                            <div className="font-black text-lg">1 serving</div>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-lg font-medium text-white">{viewingRecipe.carbs || 0}g</span>
-                            <span className="text-[10px] text-zinc-500 uppercase">Carbs</span>
+                          
+                          <div className="flex justify-between items-baseline py-1 border-b border-black">
+                            <div className="flex flex-col">
+                              <div className="font-black text-sm">Amount per serving</div>
+                              <div className="font-black text-3xl leading-none">Calories</div>
+                            </div>
+                            <div className="font-black text-4xl leading-none">{viewingRecipe.calories || 0}</div>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-lg font-medium text-white">{viewingRecipe.fat || 0}g</span>
-                            <span className="text-[10px] text-zinc-500 uppercase">Fat</span>
+
+                          <div className="text-right text-[10px] font-black py-1 border-b border-black">% Daily Value*</div>
+                          
+                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
+                            <div><span className="font-black">Total Fat</span> {viewingRecipe.fat || 0}g</div>
+                            <div className="font-black">{Math.round(((viewingRecipe.fat || 0) / 78) * 100)}%</div>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-lg font-medium text-white">{viewingRecipe.fiber || 0}g</span>
-                            <span className="text-[10px] text-zinc-500 uppercase">Fiber</span>
+                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs pl-4">
+                            <div>Saturated Fat {viewingRecipe.saturatedFat || 0}g</div>
+                            <div className="font-black">{Math.round(((viewingRecipe.saturatedFat || 0) / 20) * 100)}%</div>
+                          </div>
+                          <div className="border-b border-zinc-300 py-0.5 text-xs pl-4 italic">
+                            Trans Fat {viewingRecipe.transFat || 0}g
+                          </div>
+                          
+                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
+                            <div><span className="font-black">Cholesterol</span> {viewingRecipe.cholesterol || 0}mg</div>
+                            <div className="font-black">{Math.round(((viewingRecipe.cholesterol || 0) / 300) * 100)}%</div>
+                          </div>
+                          
+                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
+                            <div><span className="font-black">Sodium</span> {viewingRecipe.sodium || 0}mg</div>
+                            <div className="font-black">{Math.round(((viewingRecipe.sodium || 0) / 2300) * 100)}%</div>
+                          </div>
+                          
+                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs">
+                            <div><span className="font-black">Total Carbohydrate</span> {viewingRecipe.carbs || 0}g</div>
+                            <div className="font-black">{Math.round(((viewingRecipe.carbs || 0) / 275) * 100)}%</div>
+                          </div>
+                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs pl-4">
+                            <div>Dietary Fiber {viewingRecipe.fiber || 0}g</div>
+                            <div className="font-black">{Math.round(((viewingRecipe.fiber || 0) / 28) * 100)}%</div>
+                          </div>
+                          <div className="border-b border-zinc-300 py-0.5 text-xs pl-4">
+                            Total Sugars {viewingRecipe.sugar || 0}g
+                          </div>
+                          <div className="flex justify-between border-b border-zinc-300 py-0.5 text-xs pl-8">
+                            <div>Includes {viewingRecipe.addedSugar || 0}g Added Sugars</div>
+                            <div className="font-black">{Math.round(((viewingRecipe.addedSugar || 0) / 50) * 100)}%</div>
+                          </div>
+                          
+                          <div className="border-b-8 border-black py-0.5 text-xs">
+                            <span className="font-black">Protein</span> {viewingRecipe.protein || 0}g
+                          </div>
+
+                          <div className="border-b border-zinc-300 py-0.5 text-xs flex justify-between">
+                            <div>Vitamin D {viewingRecipe.vitaminD || 0}mcg</div>
+                            <div>{Math.round(((viewingRecipe.vitaminD || 0) / 20) * 100)}%</div>
+                          </div>
+                          <div className="border-b border-zinc-300 py-0.5 text-xs flex justify-between">
+                            <div>Calcium {viewingRecipe.calcium || 0}mg</div>
+                            <div>{Math.round(((viewingRecipe.calcium || 0) / 1300) * 100)}%</div>
+                          </div>
+                          <div className="border-b border-zinc-300 py-0.5 text-xs flex justify-between">
+                            <div>Iron {viewingRecipe.iron || 0}mg</div>
+                            <div>{Math.round(((viewingRecipe.iron || 0) / 18) * 100)}%</div>
+                          </div>
+                          <div className="border-b border-black py-0.5 text-xs flex justify-between">
+                            <div>Potassium {viewingRecipe.potassium || 0}mg</div>
+                            <div>{Math.round(((viewingRecipe.potassium || 0) / 4700) * 100)}%</div>
+                          </div>
+
+                          <div className="text-[8px] leading-tight pt-1">
+                            * The % Daily Value (DV) tells you how much a nutrient in a serving of food contributes to a daily diet. 2,000 calories a day is used for general nutrition advice.
                           </div>
                         </div>
                       </div>

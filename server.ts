@@ -968,6 +968,16 @@ apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
         "carbs": 40.0, // per serving in grams
         "fat": 15.0, // per serving in grams
         "fiber": 5.0, // per serving in grams
+        "saturatedFat": 2.5, // per serving in grams
+        "transFat": 0.0, // per serving in grams
+        "cholesterol": 45.0, // per serving in milligrams
+        "sodium": 320.0, // per serving in milligrams
+        "sugar": 4.5, // per serving in grams
+        "addedSugar": 0.0, // per serving in grams
+        "vitaminD": 2.0, // per serving in micrograms
+        "calcium": 120.0, // per serving in milligrams
+        "iron": 2.5, // per serving in milligrams
+        "potassium": 350.0, // per serving in milligrams
         "ingredients": [
           { "name": "Flour", "amount": 2, "unit": "cups", "notes": "sifted" }
         ]
@@ -992,6 +1002,16 @@ apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
           carbs: { type: Type.NUMBER },
           fat: { type: Type.NUMBER },
           fiber: { type: Type.NUMBER },
+          saturatedFat: { type: Type.NUMBER },
+          transFat: { type: Type.NUMBER },
+          cholesterol: { type: Type.NUMBER },
+          sodium: { type: Type.NUMBER },
+          sugar: { type: Type.NUMBER },
+          addedSugar: { type: Type.NUMBER },
+          vitaminD: { type: Type.NUMBER },
+          calcium: { type: Type.NUMBER },
+          iron: { type: Type.NUMBER },
+          potassium: { type: Type.NUMBER },
           ingredients: {
             type: Type.ARRAY,
             items: {
@@ -1005,7 +1025,7 @@ apiRouter.post('/recipes/parse', authenticate, async (req, res) => {
             }
           }
         },
-        required: ['title', 'ingredients', 'instructions']
+        required: ['title', 'ingredients', 'instructions', 'calories', 'protein', 'carbs', 'fat']
       }
     };
 
@@ -1114,7 +1134,9 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
     const { 
       title, description, prepTime, cookTime, yield: recipeYield, 
       instructions, imageUrl, visibility, category, ingredients,
-      calories, protein, carbs, fat, fiber
+      calories, protein, carbs, fat, fiber,
+      saturatedFat, transFat, cholesterol, sodium, sugar,
+      addedSugar, vitaminD, calcium, iron, potassium
     } = req.body;
     
     const toInt = (val: any) => {
@@ -1152,6 +1174,16 @@ apiRouter.post('/recipes', authenticate, async (req: any, res) => {
         carbs: toFloat(carbs),
         fat: toFloat(fat),
         fiber: toFloat(fiber),
+        saturatedFat: toFloat(saturatedFat),
+        transFat: toFloat(transFat),
+        cholesterol: toFloat(cholesterol),
+        sodium: toFloat(sodium),
+        sugar: toFloat(sugar),
+        addedSugar: toFloat(addedSugar),
+        vitaminD: toFloat(vitaminD),
+        calcium: toFloat(calcium),
+        iron: toFloat(iron),
+        potassium: toFloat(potassium),
         authorId: req.user.role === 'Admin' && req.body.authorId ? req.body.authorId : req.user.id,
         ingredients: {
           create: sanitizedIngredients
@@ -1171,7 +1203,9 @@ apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
     const { 
       title, description, prepTime, cookTime, yield: recipeYield, 
       instructions, imageUrl, visibility, category, ingredients, authorId,
-      calories, protein, carbs, fat, fiber
+      calories, protein, carbs, fat, fiber,
+      saturatedFat, transFat, cholesterol, sodium, sugar,
+      addedSugar, vitaminD, calcium, iron, potassium
     } = req.body;
     
     const existing = await prisma.recipe.findUnique({ where: { id } });
@@ -1216,6 +1250,16 @@ apiRouter.put('/recipes/:id', authenticate, async (req: any, res) => {
         carbs: toFloat(carbs),
         fat: toFloat(fat),
         fiber: toFloat(fiber),
+        saturatedFat: toFloat(saturatedFat),
+        transFat: toFloat(transFat),
+        cholesterol: toFloat(cholesterol),
+        sodium: toFloat(sodium),
+        sugar: toFloat(sugar),
+        addedSugar: toFloat(addedSugar),
+        vitaminD: toFloat(vitaminD),
+        calcium: toFloat(calcium),
+        iron: toFloat(iron),
+        potassium: toFloat(potassium),
         authorId: req.user.role === 'Admin' && authorId ? authorId : existing.authorId,
         ingredients: {
           deleteMany: {},
@@ -1271,7 +1315,17 @@ apiRouter.post('/recipes/:id/estimate-nutrition', authenticate, async (req: any,
         "protein": 25.5,
         "carbs": 40.0,
         "fat": 15.0,
-        "fiber": 5.0
+        "fiber": 5.0,
+        "saturatedFat": 2.5,
+        "transFat": 0.0,
+        "cholesterol": 45.0,
+        "sodium": 320.0,
+        "sugar": 4.5,
+        "addedSugar": 0.0,
+        "vitaminD": 2.0,
+        "calcium": 120.0,
+        "iron": 2.5,
+        "potassium": 350.0
       }
     `;
 
@@ -1287,9 +1341,19 @@ apiRouter.post('/recipes/:id/estimate-nutrition', authenticate, async (req: any,
             protein: { type: Type.NUMBER },
             carbs: { type: Type.NUMBER },
             fat: { type: Type.NUMBER },
-            fiber: { type: Type.NUMBER }
+            fiber: { type: Type.NUMBER },
+            saturatedFat: { type: Type.NUMBER },
+            transFat: { type: Type.NUMBER },
+            cholesterol: { type: Type.NUMBER },
+            sodium: { type: Type.NUMBER },
+            sugar: { type: Type.NUMBER },
+            addedSugar: { type: Type.NUMBER },
+            vitaminD: { type: Type.NUMBER },
+            calcium: { type: Type.NUMBER },
+            iron: { type: Type.NUMBER },
+            potassium: { type: Type.NUMBER }
           },
-          required: ['calories', 'protein', 'carbs', 'fat', 'fiber']
+          required: ['calories', 'protein', 'carbs', 'fat', 'fiber', 'saturatedFat', 'cholesterol', 'sodium', 'sugar']
         }
       }
     });
