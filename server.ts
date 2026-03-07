@@ -364,9 +364,27 @@ apiRouter.get('/auth/me', authenticate, async (req: any, res) => {
   const config = await prisma.globalConfig.findUnique({ where: { id: 'default' } });
   const isAiConfigured = !!(config?.geminiApiKey || (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY"));
   res.json({ 
-    user: { id: req.user.id, username: req.user.username, role: req.user.role },
+    user: { 
+      id: req.user.id, 
+      username: req.user.username, 
+      role: req.user.role,
+      showNutrition: req.user.showNutrition
+    },
     isAiConfigured
   });
+});
+
+apiRouter.put('/user/settings', authenticate, async (req: any, res) => {
+  try {
+    const { showNutrition } = req.body;
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { showNutrition }
+    });
+    res.json({ success: true, user: { id: user.id, username: user.username, role: user.role, showNutrition: user.showNutrition } });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update settings', message: error.message });
+  }
 });
 
 apiRouter.put('/auth/password', authenticate, async (req: any, res) => {

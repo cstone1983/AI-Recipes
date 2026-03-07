@@ -18,6 +18,7 @@ model User {
   exportIncludeImages Boolean      @default(true)
   exportCompactLayout Boolean      @default(false)
   exportLargeFont     Boolean      @default(false)
+  showNutrition       Boolean      @default(true)
   friendsReceived     Friendship[] @relation("FriendReceiver")
   friendsInitiated    Friendship[] @relation("FriendInitiator")
   recipes             Recipe[]

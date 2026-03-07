@@ -522,6 +522,24 @@ export default function App() {
     }
   };
 
+  const handleUpdateSettings = async (showNutrition: boolean) => {
+    try {
+      const res = await fetch('/api/user/settings', {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({ showNutrition })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUser({ ...user, showNutrition: data.user.showNutrition });
+      } else {
+        alert('Error updating settings: ' + data.error);
+      }
+    } catch (e) {
+      alert('Network error updating settings.');
+    }
+  };
+
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminUserMessage('');
@@ -2195,7 +2213,7 @@ export default function App() {
                       {viewingRecipe.category && <div><span className="text-zinc-500 uppercase text-xs tracking-wider block mb-1">Category</span>{viewingRecipe.category}</div>}
                     </div>
 
-                    {(!viewingRecipe.calories || !viewingRecipe.protein || !viewingRecipe.carbs || !viewingRecipe.fat || !viewingRecipe.sodium) && (
+                    {user?.showNutrition !== false && (!viewingRecipe.calories || !viewingRecipe.protein || !viewingRecipe.carbs || !viewingRecipe.fat || !viewingRecipe.sodium) && (
                       <div className="flex justify-center -mt-4 mb-4">
                         <button 
                           onClick={() => handleEstimateNutrition(viewingRecipe.id, true)}
@@ -2208,7 +2226,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {(viewingRecipe.calories || viewingRecipe.protein || viewingRecipe.carbs || viewingRecipe.fat) && (
+                    {user?.showNutrition !== false && (viewingRecipe.calories || viewingRecipe.protein || viewingRecipe.carbs || viewingRecipe.fat) && (
                       <div className="flex justify-center py-4">
                         <div className="nutrition-facts-label p-5 border-2 border-black w-full max-w-[320px] font-sans shadow-2xl mx-auto">
                           <h2 className="text-4xl font-black border-b-[12px] border-black pb-1 leading-none tracking-tighter">Nutrition Facts</h2>
@@ -2858,7 +2876,22 @@ export default function App() {
                 </div>
 
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 max-w-2xl">
-                  <h3 className="text-lg font-medium mb-4">Data Export</h3>
+                  <h3 className="text-lg font-medium mb-4">Preferences</h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-zinc-200">Show Nutrition Information</h4>
+                      <p className="text-xs text-zinc-500">Display the Nutrition Facts label on recipes when data is available.</p>
+                    </div>
+                    <button 
+                      onClick={() => handleUpdateSettings(user?.showNutrition === false ? true : false)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${user?.showNutrition !== false ? 'bg-emerald-600' : 'bg-zinc-700'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user?.showNutrition !== false ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 max-w-2xl">
                   <p className="text-sm text-zinc-400 mb-6">Download all your personal recipes as a JSON file for safekeeping or transferring to another instance.</p>
                   <a href={`/api/user/export?token=${token}`} className="inline-flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                     <FileJson size={16} /> Export My Recipes (JSON)
