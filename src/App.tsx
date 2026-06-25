@@ -1137,7 +1137,7 @@ export default function App() {
         >
           <div className="flex items-center justify-center mb-8">
             <ChefHat className="w-12 h-12 text-emerald-500 mr-3" />
-            <h1 className="text-3xl font-serif tracking-tight">CulinaryBase</h1>
+            <h1 className="text-3xl font-serif tracking-tight">Stones Recipes</h1>
           </div>
           
           <form onSubmit={handleAuth} className="space-y-4">
@@ -1244,7 +1244,7 @@ export default function App() {
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-3 overflow-hidden">
               <ChefHat className="text-emerald-500 shrink-0" size={28} />
-              <span className="font-serif text-xl font-bold tracking-tight truncate">CulinaryBase</span>
+              <span className="font-serif text-xl font-bold tracking-tight truncate">Stones Recipes</span>
             </div>
           )}
           {isSidebarCollapsed && (
