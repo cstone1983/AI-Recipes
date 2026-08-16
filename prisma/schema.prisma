@@ -23,6 +23,9 @@ model User {
   friendsInitiated    Friendship[] @relation("FriendInitiator")
   recipes             Recipe[]
   sessions            Session[]
+  groceryLists        GroceryList[]
+  savedCatalogItems   SavedCatalogItem[]
+  shoppingTrips       ShoppingTrip[]
 }
 
 model Session {
@@ -102,4 +105,57 @@ model GlobalConfig {
   geminiApiKey String?
   geminiModel  String  @default("gemini-3-flash-preview")
   updateUrl    String? @default("https://raw.githubusercontent.com/cstone1983/AI-Recipes/main/version.json")
+}
+
+model GroceryList {
+  id        String        @id @default(uuid())
+  userId    String
+  name      String        @default("Weekly Groceries")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     GroceryItem[]
+}
+
+model GroceryItem {
+  id          String      @id @default(uuid())
+  listId      String
+  name        String
+  category    String
+  price       Float       @default(0.0)
+  quantity    Int         @default(1)
+  unit        String      @default("pcs")
+  isPurchased Boolean     @default(false)
+  barcode     String?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  list        GroceryList @relation(fields: [listId], references: [id], onDelete: Cascade)
+}
+
+model SavedCatalogItem {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  category     String
+  defaultPrice Float    @default(0.0)
+  defaultUnit  String   @default("pcs")
+  barcode      String?
+  isFavorite   Boolean  @default(false)
+  usageCount   Int      @default(1)
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ShoppingTrip {
+  id                  String   @id @default(uuid())
+  userId              String
+  storeName           String
+  totalAmount         Float
+  totalItemsCount     Int
+  itemsPurchasedCount Int
+  itemsJson           String   // Storing JSON snapshot of items as string
+  notes               String?
+  completedAt         DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

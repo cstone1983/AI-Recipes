@@ -196,7 +196,13 @@ app.use(cors({
 const authenticate = async (req: any, res: any, next: any) => {
   console.log(`Authenticating request: ${req.url}`);
   try {
-    const token = req.cookies.session_token || req.headers['x-session-token'] || req.query.token;
+    let token = req.cookies.session_token || req.headers['x-session-token'] || req.query.token;
+    
+    // Support standard Bearer token
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
     if (!token) {
       console.log('No session token found in cookies or headers');
       return res.status(401).json({ error: 'Unauthorized' });
@@ -1642,6 +1648,191 @@ apiRouter.get('/user/export', authenticate, async (req: any, res) => {
     res.send(JSON.stringify(recipes, null, 2));
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to export recipes' });
+  }
+});
+
+// --- Grocery App Integration ---
+
+apiRouter.get('/lists/:shareId', authenticate, async (req: any, res) => {
+  try {
+    const listId = req.params.shareId;
+    
+    // Find or create the list if it belongs to the user
+    let list = await prisma.groceryList.findUnique({
+      where: { id: listId },
+      include: { items: true }
+    });
+    
+    // Auto-create list if it doesn't exist to make client logic simpler
+    if (!list) {
+      list = await prisma.groceryList.create({
+        data: {
+          id: listId,
+          userId: req.user.id,
+          name: "Weekly Groceries"
+        },
+        include: { items: true }
+      });
+    } else if (list.userId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden: You do not own this list' });
+    }
+
+    const savedCatalog = await prisma.savedCatalogItem.findMany({
+      where: { userId: req.user.id }
+    });
+
+    res.json({
+      listShareId: list.id,
+      timestamp: Date.now(),
+      items: list.items.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        quantity: item.quantity,
+        unit: item.unit,
+        isPurchased: item.isPurchased,
+        barcode: item.barcode,
+        notes: item.notes
+      })),
+      savedCatalog: savedCatalog.map((cat: any) => ({
+        name: cat.name,
+        category: cat.category,
+        defaultPrice: cat.defaultPrice,
+        defaultUnit: cat.defaultUnit,
+        barcode: cat.barcode,
+        isFavorite: cat.isFavorite,
+        usageCount: cat.usageCount
+      }))
+    });
+  } catch (error: any) {
+    console.error('Fetch list error:', error);
+    res.status(500).json({ error: 'Failed to fetch grocery list', message: error.message });
+  }
+});
+
+apiRouter.post('/lists/sync', authenticate, async (req: any, res) => {
+  try {
+    const { listShareId, items, savedCatalog } = req.body;
+    
+    if (!listShareId) return res.status(400).json({ error: 'listShareId is required' });
+
+    // Verify ownership
+    const list = await prisma.groceryList.findUnique({ where: { id: listShareId } });
+    if (!list) {
+      await prisma.groceryList.create({
+        data: { id: listShareId, userId: req.user.id, name: "Weekly Groceries" }
+      });
+    } else if (list.userId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Atomic transaction for sync
+    await prisma.$transaction(async (tx: any) => {
+      // 1. Clear existing items for this list
+      await tx.groceryItem.deleteMany({ where: { listId: listShareId } });
+      
+      // 2. Insert new items
+      if (items && items.length > 0) {
+        await tx.groceryItem.createMany({
+          data: items.map((item: any) => ({
+            id: item.id || crypto.randomUUID(),
+            listId: listShareId,
+            name: item.name,
+            category: item.category || 'OTHER',
+            price: item.price || 0.0,
+            quantity: item.quantity || 1,
+            unit: item.unit || 'pcs',
+            isPurchased: item.isPurchased || false,
+            barcode: item.barcode || null,
+            notes: item.notes || null
+          }))
+        });
+      }
+
+      // 3. Update saved catalog (upsert logic since sqlite createMany doesn't support skipDuplicates well)
+      if (savedCatalog && savedCatalog.length > 0) {
+        // First delete all catalog items for user (simplest sync strategy)
+        await tx.savedCatalogItem.deleteMany({ where: { userId: req.user.id } });
+        
+        await tx.savedCatalogItem.createMany({
+          data: savedCatalog.map((cat: any) => ({
+            id: crypto.randomUUID(),
+            userId: req.user.id,
+            name: cat.name,
+            category: cat.category || 'OTHER',
+            defaultPrice: cat.defaultPrice || 0.0,
+            defaultUnit: cat.defaultUnit || 'pcs',
+            barcode: cat.barcode || null,
+            isFavorite: cat.isFavorite || false,
+            usageCount: cat.usageCount || 1
+          }))
+        });
+      }
+      
+      // Update list timestamp
+      await tx.groceryList.update({
+        where: { id: listShareId },
+        data: { updatedAt: new Date() }
+      });
+    });
+
+    res.json({ success: true, updatedAt: Date.now() });
+  } catch (error: any) {
+    console.error('List sync error:', error);
+    res.status(500).json({ error: 'Failed to sync list', message: error.message });
+  }
+});
+
+apiRouter.post('/trips', authenticate, async (req: any, res) => {
+  try {
+    const { storeName, totalAmount, totalItemsCount, itemsPurchasedCount, items, notes } = req.body;
+    
+    const trip = await prisma.shoppingTrip.create({
+      data: {
+        userId: req.user.id,
+        storeName: storeName || 'Unknown Store',
+        totalAmount: totalAmount || 0.0,
+        totalItemsCount: totalItemsCount || 0,
+        itemsPurchasedCount: itemsPurchasedCount || 0,
+        itemsJson: JSON.stringify(items || []),
+        notes: notes || null
+      }
+    });
+    
+    res.status(201).json(trip);
+  } catch (error: any) {
+    console.error('Create trip error:', error);
+    res.status(500).json({ error: 'Failed to create trip', message: error.message });
+  }
+});
+
+apiRouter.get('/trips', authenticate, async (req: any, res) => {
+  try {
+    const trips = await prisma.shoppingTrip.findMany({
+      where: { userId: req.user.id },
+      orderBy: { completedAt: 'desc' }
+    });
+    res.json(trips);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch trips' });
+  }
+});
+
+apiRouter.delete('/trips/:id', authenticate, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const trip = await prisma.shoppingTrip.findUnique({ where: { id } });
+    
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    if (trip.userId !== req.user.id && req.user.role !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    await prisma.shoppingTrip.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete trip' });
   }
 });
 
